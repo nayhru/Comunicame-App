@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema base de la Activity. La apariencia real la define Compose en
+         Theme.kt; este estilo solo evita el parpadeo de la ActionBar nativa
+         mientras arranca la aplicacion. -->
+    <style name="Theme.Comunicame" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

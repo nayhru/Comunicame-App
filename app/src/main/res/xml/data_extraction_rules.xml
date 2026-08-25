@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Sin datos persistidos que transferir en esta etapa del proyecto. -->
+    </cloud-backup>
+    <device-transfer>
+        <!-- Sin datos persistidos que transferir en esta etapa del proyecto. -->
+    </device-transfer>
+</data-extraction-rules>

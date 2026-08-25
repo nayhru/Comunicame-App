@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Esta entrega no persiste datos: los usuarios viven solo en memoria,
+         por lo que no hay contenido que respaldar. -->
+</full-backup-content>

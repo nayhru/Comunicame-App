@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Retroalimentacion haptica: sustituye a las alertas sonoras para el
+         usuario con discapacidad auditiva. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Declarada porque el proyecto contempla conexion activa a internet
+         segun las restricciones de la entrega. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Consulta al motor de sintesis de voz (Text To Speech) del dispositivo,
+         requerida desde Android 11 por la visibilidad de paquetes. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Comunicame">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.Comunicame">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
