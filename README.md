@@ -7,6 +7,9 @@ comunicarse con una persona oyente sin depender de que esta sepa lengua de seña
 Proyecto de la asignatura **Desarrollo de Aplicaciones Móviles (DSY2204)** — Experiencia 1,
 Evaluación Sumativa 1.
 
+**Autora:** María Ovalle Suazo
+**Repositorio:** https://github.com/nayhru/Comunicame-App
+
 ## Stack
 
 | | |
