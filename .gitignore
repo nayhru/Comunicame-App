@@ -1,0 +1,21 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/.idea/deploymentTargetSelector.xml
+/.idea/deploymentTargetDropDown.xml
+/.idea/appInsightsSettings.xml
+.DS_Store
+
+# Sin barra inicial: ignora build/ en la raiz y en cualquier modulo (app/build, etc.)
+build/
+
+/captures
+.externalNativeBuild
+.cxx
+local.properties
