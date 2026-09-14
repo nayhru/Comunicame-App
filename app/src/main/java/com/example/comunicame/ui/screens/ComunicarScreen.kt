@@ -15,12 +15,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Lock
@@ -29,6 +31,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,12 +54,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.comunicame.data.CategoriaFrase
 import com.example.comunicame.data.RepositorioFrases
 import com.example.comunicame.ui.components.MensajeEstado
 import com.example.comunicame.ui.components.PatronVibracion
 import com.example.comunicame.ui.components.TipoMensaje
 import com.example.comunicame.ui.components.vibrar
 import com.example.comunicame.ui.theme.ComunicameTheme
+import com.example.comunicame.util.estaVacio
+import com.example.comunicame.util.limpio
 import java.util.Locale
 
 private enum class ModoComunicacion(val etiqueta: String) {
@@ -74,6 +80,8 @@ fun ComunicarScreen() {
 
     var modo by remember { mutableStateOf(ModoComunicacion.TEXTO_A_VOZ) }
     var texto by remember { mutableStateOf("") }
+    var busqueda by remember { mutableStateOf("") }
+    var categoria by remember { mutableStateOf<CategoriaFrase?>(null) }
     var mensaje by remember { mutableStateOf<Pair<String, TipoMensaje>?>(null) }
     var dialogoAbierto by remember { mutableStateOf(false) }
     var fraseNueva by remember { mutableStateOf("") }
@@ -95,9 +103,9 @@ fun ComunicarScreen() {
     }
 
     fun hablar() {
-        val contenido = texto.trim()
+        val contenido = texto.limpio
 
-        if (contenido.isEmpty()) {
+        if (contenido.estaVacio) {
             mensaje = "Escribe un mensaje antes de reproducir" to TipoMensaje.AVISO
             vibrar(context, PatronVibracion.TOQUE)
             return
@@ -110,12 +118,51 @@ fun ComunicarScreen() {
             return
         }
 
-        motor.language = Locale.forLanguageTag("es-CL")
-        motor.speak(contenido, TextToSpeech.QUEUE_FLUSH, null, "mensaje_comunicame")
+        // try/catch porque el motor de voz es hardware ajeno: puede no tener la
+        // voz en espanol instalada, quedarse sin memoria o morirse a mitad de
+        // la reproduccion. Si eso revienta sin capturar, se cae la app entera y
+        // la usuaria pierde el mensaje que acababa de escribir.
+        try {
+            val idioma = motor.setLanguage(Locale.forLanguageTag("es-CL"))
 
-        // No escucha lo que acaba de sonar, hay que confirmarselo por otra via
-        vibrar(context, PatronVibracion.EXITO)
-        mensaje = "Mensaje reproducido en voz alta" to TipoMensaje.EXITO
+            // setLanguage no lanza excepcion cuando falta el idioma: devuelve
+            // un codigo. Hay que revisarlo a mano.
+            if (idioma == TextToSpeech.LANG_MISSING_DATA ||
+                idioma == TextToSpeech.LANG_NOT_SUPPORTED
+            ) {
+                mensaje = "Falta instalar la voz en español en este dispositivo" to
+                    TipoMensaje.AVISO
+                vibrar(context, PatronVibracion.ERROR)
+                return
+            }
+
+            val resultado = motor.speak(
+                contenido,
+                TextToSpeech.QUEUE_FLUSH,
+                null,
+                "mensaje_comunicame"
+            )
+
+            if (resultado == TextToSpeech.ERROR) {
+                throw IllegalStateException("speak() devolvio ERROR")
+            }
+
+            // No escucha lo que acaba de sonar, hay que confirmarselo por otra via
+            vibrar(context, PatronVibracion.EXITO)
+            mensaje = "Mensaje reproducido en voz alta" to TipoMensaje.EXITO
+
+        } catch (e: IllegalStateException) {
+            // El motor quedo en un estado invalido
+            mensaje = "El motor de voz no respondió. Intenta de nuevo." to TipoMensaje.ERROR
+            vibrar(context, PatronVibracion.ERROR)
+
+        } catch (e: Exception) {
+            // Red de seguridad: cualquier otra falla del dispositivo.
+            // Prefiero un mensaje visible antes que un cierre inesperado.
+            mensaje = "No se pudo reproducir el mensaje en este dispositivo" to
+                TipoMensaje.ERROR
+            vibrar(context, PatronVibracion.ERROR)
+        }
     }
 
     val formaCampo = RoundedCornerShape(12.dp)
@@ -215,27 +262,94 @@ fun ComunicarScreen() {
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    userScrollEnabled = false,
+                // Buscador. Filtra sobre sugeridas y guardadas a la vez.
+                OutlinedTextField(
+                    value = busqueda,
+                    onValueChange = { busqueda = it },
+                    label = { Text("Buscar una frase") },
+                    singleLine = true,
+                    shape = formaCampo,
+                    colors = coloresCampo,
+                    trailingIcon = {
+                        if (busqueda.isNotEmpty()) {
+                            IconButton(onClick = { busqueda = "" }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Borrar la búsqueda"
+                                )
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Chips de categoria. null = todas.
+                // El primer chip lo agrego aparte y el resto sale de recorrer
+                // el enum con map, asi no repito la misma estructura 5 veces.
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        // 4 filas de 112 mas 3 separaciones de 10.
+                        .horizontalScroll(rememberScrollState())
+                ) {
+                    FilterChip(
+                        selected = categoria == null,
+                        onClick = { categoria = null },
+                        label = { Text("Todas") }
+                    )
+                    CategoriaFrase.entries.forEach { cat ->
+                        FilterChip(
+                            selected = categoria == cat,
+                            onClick = { categoria = if (categoria == cat) null else cat },
+                            label = { Text(cat.etiqueta) }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Aca se combinan las dos cosas: si hay busqueda mando todo al
+                // buscador; si no, filtro por la categoria elegida.
+                val frasesVisibles: List<String> = if (busqueda.isNotBlank()) {
+                    RepositorioFrases.buscar(busqueda)
+                } else {
+                    RepositorioFrases.sugeridasDe(categoria).map { it.texto }
+                }
+
+                if (frasesVisibles.isEmpty()) {
+                    MensajeEstado(
+                        texto = "No hay frases que coincidan con \"$busqueda\".",
+                        tipo = TipoMensaje.INFO
+                    )
+                } else {
+                    // Altura calculada: 2 columnas, 112dp por fila, 10dp entre filas.
+                    // Con la grilla filtrada el alto ya no puede ser fijo.
+                    val filas = (frasesVisibles.size + 1) / 2
+                    val altoGrilla = (filas * 112 + (filas - 1).coerceAtLeast(0) * 10).dp
+
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                         // Le apago el scroll propio: va dentro de un Column que
                         // ya scrollea y se pelean por el gesto.
-                        .height(478.dp)
-                ) {
-                    items(RepositorioFrases.sugeridas) { frase ->
-                        TarjetaFrase(
-                            frase = frase,
-                            alTocar = {
-                                texto = frase
-                                mensaje = null
-                                vibrar(context, PatronVibracion.TOQUE)
-                            }
-                        )
+                        userScrollEnabled = false,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(altoGrilla)
+                    ) {
+                        items(frasesVisibles) { frase ->
+                            TarjetaFrase(
+                                frase = frase,
+                                alTocar = {
+                                    texto = frase
+                                    mensaje = null
+                                    vibrar(context, PatronVibracion.TOQUE)
+                                }
+                            )
+                        }
                     }
                 }
 

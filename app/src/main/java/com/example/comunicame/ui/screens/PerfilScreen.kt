@@ -33,6 +33,9 @@ import androidx.compose.ui.unit.dp
 import com.example.comunicame.data.RepositorioFrases
 import com.example.comunicame.data.RepositorioUsuarios
 import com.example.comunicame.ui.theme.ComunicameTheme
+import com.example.comunicame.util.contarQue
+import com.example.comunicame.util.criterioDeLargo
+import com.example.comunicame.util.resumen
 
 // MI PERFIL. Los datos del registro y las preferencias que eligio.
 // Abajo listo lo que falta por hacer, para que el alcance quede claro dentro de
@@ -96,6 +99,67 @@ fun PerfilScreen(nombreUsuario: String) {
                 FilaPerfil("Se comunica por", usuario?.preferencia?.etiqueta ?: "—")
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 FilaPerfil("Frases guardadas", "${RepositorioFrases.guardadas.size}")
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                // resumen() es una extension de List<String>: junta las dos
+                // primeras y cuenta el resto
+                FilaPerfil("Mis frases", RepositorioFrases.guardadas.toList().resumen())
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                // contarQue recibe una lambda como criterio
+                FilaPerfil(
+                    "Frases cortas",
+                    "${RepositorioFrases.guardadas.toList().contarQue(criterioDeLargo(25))}"
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Estadisticas armadas con groupBy. Cada Map se recorre con forEach
+        // desestructurando la entrada en (clave, valor).
+        Text(
+            text = "Resumen de la comunidad",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = "Cómo se comunican las personas registradas.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            ),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+
+                // Map<String, Int> generado con groupBy + mapValues
+                val porPreferencia = RepositorioUsuarios.conteoPorPreferencia()
+
+                porPreferencia.entries.forEachIndexed { indice, (etiqueta, cantidad) ->
+                    if (indice > 0) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    }
+                    FilaPerfil(etiqueta, "$cantidad ${if (cantidad == 1) "persona" else "personas"}")
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                // Set ordenado: comunas distintas, sin repetir
+                val comunas = RepositorioUsuarios.comunasConUsuarios()
+                FilaPerfil("Comunas", comunas.joinToString(", "))
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                // Otro Map, esta vez de frases por categoria
+                val totalSugeridas = RepositorioFrases.conteoPorCategoria()
+                    .values
+                    .sum()
+                FilaPerfil("Frases sugeridas", "$totalSugeridas en la app")
             }
         }
 

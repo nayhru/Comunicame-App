@@ -1,5 +1,6 @@
 package com.example.comunicame.ui.screens
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -28,6 +29,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -37,6 +42,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.comunicame.data.RepositorioUsuarios
+import com.example.comunicame.data.ServicioEmergencia
 import com.example.comunicame.data.serviciosEmergencia
 import com.example.comunicame.ui.components.MensajeEstado
 import com.example.comunicame.ui.components.PatronVibracion
@@ -51,7 +57,36 @@ import com.example.comunicame.ui.theme.ComunicameTheme
 @Composable
 fun EmergenciaScreen(nombreUsuario: String) {
     val context = LocalContext.current
-    val usuario = RepositorioUsuarios.usuarios.find { it.usuario == nombreUsuario }
+    val usuario = RepositorioUsuarios.buscarPorUsuario(nombreUsuario)
+
+    var avisoMarcador by remember { mutableStateOf<String?>(null) }
+
+    // Abre el marcador del sistema con el numero ya cargado.
+    //
+    // try/catch porque startActivity confia en que el equipo tenga una app de
+    // telefono, y eso no siempre es cierto: una tablet sin modulo celular no
+    // tiene marcador y lanza ActivityNotFoundException. En una pantalla de
+    // emergencia un cierre inesperado es lo peor que puede pasar.
+    fun abrirMarcador(servicio: ServicioEmergencia) {
+        vibrar(context, PatronVibracion.TOQUE)
+        try {
+            // ACTION_DIAL abre el marcador con el numero cargado y NO requiere
+            // el permiso CALL_PHONE: la llamada la confirma quien tenga el
+            // telefono en la mano.
+            val intento = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${servicio.numero}"))
+            context.startActivity(intento)
+            avisoMarcador = null
+        } catch (e: ActivityNotFoundException) {
+            // Sin app de telefono: al menos dejo el numero a la vista para que
+            // alguien lo marque desde otro aparato.
+            avisoMarcador = "Este dispositivo no tiene marcador. " +
+                "Marca el ${servicio.numero} desde otro teléfono."
+            vibrar(context, PatronVibracion.ERROR)
+        } catch (e: SecurityException) {
+            avisoMarcador = "El sistema bloqueó la apertura del marcador."
+            vibrar(context, PatronVibracion.ERROR)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -133,6 +168,12 @@ fun EmergenciaScreen(nombreUsuario: String) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
+        // Solo aparece si el marcador fallo
+        avisoMarcador?.let { aviso ->
+            Spacer(modifier = Modifier.height(12.dp))
+            MensajeEstado(texto = aviso, tipo = TipoMensaje.ERROR)
+        }
+
         Spacer(modifier = Modifier.height(12.dp))
 
         // TABLA. Encabezado y una fila por servicio, cada fila abre el marcador.
@@ -171,18 +212,7 @@ fun EmergenciaScreen(nombreUsuario: String) {
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable {
-                                vibrar(context, PatronVibracion.TOQUE)
-                                // ACTION_DIAL abre el marcador con el numero
-                                // cargado y NO requiere el permiso CALL_PHONE:
-                                // la llamada la confirma quien tenga el
-                                // telefono en la mano.
-                                val intento = Intent(
-                                    Intent.ACTION_DIAL,
-                                    Uri.parse("tel:${servicio.numero}")
-                                )
-                                context.startActivity(intento)
-                            }
+                            .clickable { abrirMarcador(servicio) }
                             .padding(horizontal = 14.dp, vertical = 12.dp)
                     ) {
                         Text(
@@ -199,14 +229,22 @@ fun EmergenciaScreen(nombreUsuario: String) {
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = servicio.detalle,
+                                // descripcionCorta es polimorfica: aunque
+                                // recorro la lista como ServicioEmergencia,
+                                // cada subclase responde lo suyo. El SAMU
+                                // agrega "urgencia vital" y los policiales su
+                                // jurisdiccion.
+                                text = servicio.descripcionCorta(),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Icon(
                             imageVector = Icons.Filled.Call,
-                            contentDescription = "Marcar ${servicio.numero}, ${servicio.nombre}",
+                            // etiquetaAccesible viene de la interfaz Contactable.
+                            // El servicio medico la sobreescribe para avisarle
+                            // a TalkBack que es urgencia vital.
+                            contentDescription = servicio.etiquetaAccesible(),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
