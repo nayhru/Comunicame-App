@@ -1,12 +1,23 @@
 package com.example.comunicame.data
 
 import androidx.compose.runtime.mutableStateListOf
+import com.example.comunicame.util.LARGO_MINIMO_CONTRASENA
+import com.example.comunicame.util.ResultadoValidacion
+import com.example.comunicame.util.equivaleA
+import com.example.comunicame.util.esCorreoValido
+import com.example.comunicame.util.esUsuarioValido
+import com.example.comunicame.util.estaVacio
+import com.example.comunicame.util.limpio
+import com.example.comunicame.util.tieneLargoMinimo
 
 // Arreglo de usuarios en memoria. Parte con los 5 que pide el enunciado y
 // Registro le va agregando mas.
 // Uso mutableStateListOf y no listOf para que Compose vea los cambios y
 // recomponga solo lo que lee la lista.
 object RepositorioUsuarios {
+
+    // Documenta el requisito del enunciado: 5 usuarios precargados
+    const val CANTIDAD_INICIAL = 5
 
     val usuarios = mutableStateListOf(
         Usuario(
@@ -57,18 +68,123 @@ object RepositorioUsuarios {
         "Nunoa", "Providencia", "Las Condes", "San Bernardo"
     )
 
+    // Set con los correos ya tomados. Se recalcula porque la lista cambia;
+    // un Set consulta pertenencia en O(1), una List tendria que recorrerla.
+    private fun correosRegistrados(): Set<String> =
+        usuarios.map { it.correo.lowercase() }.toSet()
+
+    private fun usuariosRegistrados(): Set<String> =
+        usuarios.map { it.usuario.lowercase() }.toSet()
+
     // Devuelve el usuario si coinciden usuario y clave, si no null
     fun validarCredenciales(usuario: String, contrasena: String): Usuario? =
         usuarios.find {
-            it.usuario.equals(usuario.trim(), ignoreCase = true) &&
-                it.contrasena == contrasena
+            it.usuario.equivaleA(usuario) && it.contrasena == contrasena
         }
 
     fun existeUsuario(usuario: String): Boolean =
-        usuarios.any { it.usuario.equals(usuario.trim(), ignoreCase = true) }
+        usuario.limpio.lowercase() in usuariosRegistrados()
 
     fun existeCorreo(correo: String): Boolean =
-        usuarios.any { it.correo.equals(correo.trim(), ignoreCase = true) }
+        correo.limpio.lowercase() in correosRegistrados()
+
+    // Valida el Login antes de buscar en la lista.
+    // primeraFalla corta en el primer error, asi el mensaje es el mas util.
+    fun validarLogin(usuario: String, contrasena: String): ResultadoValidacion =
+        ResultadoValidacion.primeraFalla(
+            {
+                ResultadoValidacion.exigir(!usuario.estaVacio && !contrasena.estaVacio) {
+                    "Completa tu usuario y tu contraseña"
+                }
+            },
+            {
+                ResultadoValidacion.exigir(
+                    validarCredenciales(usuario, contrasena) != null,
+                    critico = true
+                ) { "Usuario o contraseña incorrectos" }
+            }
+        )
+
+    // Valida el Registro completo.
+    // Cada regla es una lambda; se evaluan en orden hasta la primera que falle.
+    fun validarRegistro(
+        nombre: String,
+        usuario: String,
+        correo: String,
+        contrasena: String,
+        repetir: String,
+        comuna: String,
+        aceptaTerminos: Boolean
+    ): ResultadoValidacion = ResultadoValidacion.primeraFalla(
+        {
+            val camposLlenos = listOf(nombre, usuario, correo, contrasena, repetir)
+                .none { it.estaVacio }
+            ResultadoValidacion.exigir(camposLlenos) { "Completa todos los campos" }
+        },
+        { ResultadoValidacion.exigir(!comuna.estaVacio) { "Selecciona tu comuna" } },
+        {
+            ResultadoValidacion.exigir(usuario.esUsuarioValido()) {
+                "El usuario necesita 3 caracteres o más, sin espacios ni símbolos"
+            }
+        },
+        {
+            ResultadoValidacion.exigir(correo.esCorreoValido()) {
+                "El correo no tiene un formato válido"
+            }
+        },
+        {
+            ResultadoValidacion.exigir(contrasena.tieneLargoMinimo()) {
+                "La contraseña debe tener al menos $LARGO_MINIMO_CONTRASENA caracteres"
+            }
+        },
+        {
+            ResultadoValidacion.exigir(contrasena == repetir, critico = true) {
+                "Las contraseñas no coinciden"
+            }
+        },
+        {
+            ResultadoValidacion.exigir(!existeUsuario(usuario), critico = true) {
+                "Ese nombre de usuario ya está registrado"
+            }
+        },
+        {
+            ResultadoValidacion.exigir(!existeCorreo(correo), critico = true) {
+                "Ese correo ya está registrado"
+            }
+        },
+        {
+            ResultadoValidacion.exigir(aceptaTerminos) {
+                "Debes aceptar los términos para continuar"
+            }
+        }
+    )
+
+    // Valida el formulario de Recuperar contrasena
+    fun validarRecuperacion(
+        correo: String,
+        nueva: String,
+        repetir: String
+    ): ResultadoValidacion = ResultadoValidacion.primeraFalla(
+        {
+            val llenos = listOf(correo, nueva, repetir).none { it.estaVacio }
+            ResultadoValidacion.exigir(llenos) { "Completa todos los campos" }
+        },
+        {
+            ResultadoValidacion.exigir(buscarPorCorreo(correo) != null, critico = true) {
+                "No existe una cuenta con ese correo"
+            }
+        },
+        {
+            ResultadoValidacion.exigir(nueva.tieneLargoMinimo()) {
+                "La contraseña debe tener al menos $LARGO_MINIMO_CONTRASENA caracteres"
+            }
+        },
+        {
+            ResultadoValidacion.exigir(nueva == repetir, critico = true) {
+                "Las contraseñas no coinciden"
+            }
+        }
+    )
 
     // false si el usuario o el correo ya existian
     fun registrar(nuevo: Usuario): Boolean {
@@ -79,12 +195,26 @@ object RepositorioUsuarios {
 
     // Lo usa Recuperar contrasena
     fun buscarPorCorreo(correo: String): Usuario? =
-        usuarios.find { it.correo.equals(correo.trim(), ignoreCase = true) }
+        usuarios.find { it.correo.equivaleA(correo) }
+
+    fun buscarPorUsuario(usuario: String): Usuario? =
+        usuarios.find { it.usuario.equivaleA(usuario) }
 
     fun actualizarContrasena(correo: String, nueva: String): Boolean {
-        val indice = usuarios.indexOfFirst { it.correo.equals(correo.trim(), ignoreCase = true) }
+        val indice = usuarios.indexOfFirst { it.correo.equivaleA(correo) }
         if (indice == -1) return false
         usuarios[indice] = usuarios[indice].copy(contrasena = nueva)
         return true
     }
+
+    // Estadistica para Mi perfil: cuantos usuarios hay por preferencia.
+    // groupBy arma el Map y mapValues cambia las listas por su tamano.
+    fun conteoPorPreferencia(): Map<String, Int> =
+        usuarios.groupBy { it.preferencia }
+            .mapValues { (_, lista) -> lista.size }
+            .mapKeys { (pref, _) -> pref.etiqueta }
+
+    // Comunas distintas donde hay usuarios, sin repetir y ordenadas
+    fun comunasConUsuarios(): Set<String> =
+        usuarios.map { it.comuna }.toSortedSet()
 }
