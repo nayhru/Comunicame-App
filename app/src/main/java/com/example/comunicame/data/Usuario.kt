@@ -2,7 +2,7 @@ package com.example.comunicame.data
 
 // Como prefiere comunicarse el usuario. Se elige con RadioButton en Registro.
 enum class PreferenciaComunicacion(val etiqueta: String) {
-    LENGUA_DE_SENAS("Lengua de senas"),
+    LENGUA_DE_SENAS("Lengua de señas"),
     TEXTO_ESCRITO("Texto escrito"),
     LECTURA_LABIAL("Lectura labial")
 }

@@ -61,6 +61,8 @@ import com.example.comunicame.ui.components.PatronVibracion
 import com.example.comunicame.ui.components.TipoMensaje
 import com.example.comunicame.ui.components.vibrar
 import com.example.comunicame.ui.theme.ComunicameTheme
+import com.example.comunicame.util.contarQue
+import com.example.comunicame.util.criterioDeLargo
 import com.example.comunicame.util.estaVacio
 import com.example.comunicame.util.limpio
 import java.util.Locale
@@ -361,9 +363,20 @@ fun ComunicarScreen() {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
+                        // contarQue recibe el criterio como lambda: cuento las
+                        // que entran completas en una tarjeta de la grilla.
+                        val cortas = RepositorioFrases.guardadas
+                            .toList()
+                            .contarQue(criterioDeLargo(40))
+
                         EncabezadoSeccion(
                             titulo = "Mis frases",
-                            detalle = "Las que tú guardas para tu día a día"
+                            detalle = when (RepositorioFrases.guardadas.size) {
+                                0 -> "Las que tú guardas para tu día a día"
+                                cortas -> "Todas caben completas en la grilla"
+                                else -> "$cortas de ${RepositorioFrases.guardadas.size} " +
+                                    "caben completas en la grilla"
+                            }
                         )
                     }
                     IconButton(onClick = { dialogoAbierto = true }) {

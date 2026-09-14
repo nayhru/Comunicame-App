@@ -3,7 +3,9 @@ package com.example.comunicame.data
 import androidx.compose.runtime.mutableStateListOf
 import com.example.comunicame.util.equivaleA
 import com.example.comunicame.util.estaVacio
+import com.example.comunicame.util.indiceDelPrimero
 import com.example.comunicame.util.limpio
+import com.example.comunicame.util.primerosQueCumplan
 
 // Categorias para agrupar las frases sugeridas
 enum class CategoriaFrase(val etiqueta: String) {
@@ -67,19 +69,30 @@ object RepositorioFrases {
     fun sugeridasDe(categoria: CategoriaFrase?): List<Frase> =
         categoria?.let { porCategoria[it].orEmpty() } ?: sugeridas
 
+    // Cuantos resultados devuelve el buscador como maximo. Mas que esto ya no
+    // se alcanza a leer de una pasada en el telefono.
+    const val MAXIMO_RESULTADOS = 12
+
     // Busca en sugeridas y guardadas a la vez.
     //
-    // filter + map + sortedBy encadenados: filtro las que contienen el texto,
+    // filter + sortedBy + map encadenados: filtro las que contienen el texto,
     // las ordeno por largo (las cortas primero, son las mas usadas) y devuelvo
-    // solo el texto.
+    // solo el texto. primerosQueCumplan corta apenas junta los que necesita,
+    // en vez de recorrer todo y descartar despues.
     fun buscar(termino: String): List<String> {
         if (termino.estaVacio) return emptyList()
         val t = termino.limpio.lowercase()
+
         return (textosSugeridos() + guardadas)
-            .filter { it.lowercase().contains(t) }
             .sortedBy { it.length }
+            .primerosQueCumplan(MAXIMO_RESULTADOS) { it.lowercase().contains(t) }
             .map { it.limpio }
     }
+
+    // Posicion de una frase en las guardadas, o -1 si no esta.
+    // La usa la pantalla para saber si una frase ya fue guardada.
+    fun posicionEnGuardadas(frase: String): Int =
+        guardadas.toList().indiceDelPrimero { it.equivaleA(frase) }
 
     // false si venia vacia o ya existia en cualquiera de las dos listas
     fun guardar(frase: String): Boolean {

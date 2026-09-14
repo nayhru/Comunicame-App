@@ -33,9 +33,9 @@ import androidx.compose.ui.unit.dp
 import com.example.comunicame.data.RepositorioFrases
 import com.example.comunicame.data.RepositorioUsuarios
 import com.example.comunicame.ui.theme.ComunicameTheme
-import com.example.comunicame.util.contarQue
 import com.example.comunicame.util.criterioDeLargo
 import com.example.comunicame.util.resumen
+import com.example.comunicame.util.separarPor
 
 // MI PERFIL. Los datos del registro y las preferencias que eligio.
 // Abajo listo lo que falta por hacer, para que el alcance quede claro dentro de
@@ -99,21 +99,64 @@ fun PerfilScreen(nombreUsuario: String) {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 FilaPerfil("Se comunica por", usuario?.preferencia?.etiqueta ?: "—")
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                FilaPerfil("Frases guardadas", "${RepositorioFrases.guardadas.size}")
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                // resumen() es una extension de List<String>: junta las dos
-                // primeras y cuenta el resto
-                FilaPerfil("Mis frases", RepositorioFrases.guardadas.toList().resumen())
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                // contarQue recibe una lambda como criterio
+                // separarPor divide la lista en dos de una sola pasada, segun
+                // el criterio que le paso como lambda. Las frases cortas entran
+                // completas en la tarjeta de la grilla; las largas se recortan.
+                val (cortas, largas) = RepositorioFrases.guardadas
+                    .toList()
+                    .separarPor(criterioDeLargo(40))
+
                 FilaPerfil(
-                    "Frases cortas",
-                    "${RepositorioFrases.guardadas.toList().contarQue(criterioDeLargo(25))}"
+                    "Mis frases",
+                    if (cortas.isEmpty() && largas.isEmpty()) {
+                        "Ninguna todavía"
+                    } else {
+                        "${cortas.size + largas.size} guardadas"
+                    }
                 )
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+
+        // Las frases propias, listadas completas. Aca si tiene sentido verlas:
+        // son de ella y es donde puede revisar que guardo.
+        if (RepositorioFrases.guardadas.isNotEmpty()) {
+            Text(
+                text = "Mis frases guardadas",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                // resumen() junta las dos primeras y cuenta el resto
+                text = RepositorioFrases.guardadas.toList().resumen(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    RepositorioFrases.guardadas.forEachIndexed { indice, frase ->
+                        if (indice > 0) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        }
+                        Text(
+                            text = frase,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+        }
 
         // Frases disponibles por categoria.
         //
