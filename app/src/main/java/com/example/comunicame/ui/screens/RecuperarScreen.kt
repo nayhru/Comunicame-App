@@ -42,6 +42,7 @@ import com.example.comunicame.ui.components.PatronVibracion
 import com.example.comunicame.ui.components.TipoMensaje
 import com.example.comunicame.ui.components.vibrar
 import com.example.comunicame.ui.theme.ComunicameTheme
+import com.example.comunicame.util.ResultadoValidacion
 
 // RECUPERAR CONTRASENA. Valida el correo contra el arreglo y cambia la clave.
 // No manda correo real ni genera token porque esta entrega no tiene backend.
@@ -65,31 +66,21 @@ fun RecuperarScreen(
     )
 
     fun intentarActualizar() {
-        val c = correo.trim()
+        when (val resultado = RepositorioUsuarios.validarRecuperacion(correo, nueva, repetir)) {
 
-        when {
-            c.isEmpty() || nueva.isEmpty() || repetir.isEmpty() -> {
-                mensaje = "Completa todos los campos" to TipoMensaje.AVISO
-                vibrar(context, PatronVibracion.TOQUE)
+            is ResultadoValidacion.Invalido -> {
+                val tipo = if (resultado.critico) TipoMensaje.ERROR else TipoMensaje.AVISO
+                val patron = if (resultado.critico) {
+                    PatronVibracion.ERROR
+                } else {
+                    PatronVibracion.TOQUE
+                }
+                mensaje = resultado.mensaje to tipo
+                vibrar(context, patron)
             }
 
-            RepositorioUsuarios.buscarPorCorreo(c) == null -> {
-                mensaje = "No existe una cuenta con ese correo" to TipoMensaje.ERROR
-                vibrar(context, PatronVibracion.ERROR)
-            }
-
-            nueva.length < 8 -> {
-                mensaje = "La contraseña debe tener al menos 8 caracteres" to TipoMensaje.AVISO
-                vibrar(context, PatronVibracion.TOQUE)
-            }
-
-            nueva != repetir -> {
-                mensaje = "Las contraseñas no coinciden" to TipoMensaje.ERROR
-                vibrar(context, PatronVibracion.ERROR)
-            }
-
-            else -> {
-                RepositorioUsuarios.actualizarContrasena(c, nueva)
+            is ResultadoValidacion.Valido -> {
+                RepositorioUsuarios.actualizarContrasena(correo, nueva)
                 vibrar(context, PatronVibracion.EXITO)
                 mensaje = "Contraseña actualizada. Ya puedes iniciar sesión" to TipoMensaje.EXITO
                 nueva = ""

@@ -49,6 +49,7 @@ import com.example.comunicame.ui.components.PatronVibracion
 import com.example.comunicame.ui.components.TipoMensaje
 import com.example.comunicame.ui.components.vibrar
 import com.example.comunicame.ui.theme.ComunicameTheme
+import com.example.comunicame.util.ResultadoValidacion
 
 // LOGIN. Pantalla de inicio, valida contra el arreglo de RepositorioUsuarios.
 // Fondo blanco y el lila solo de acento.
@@ -82,22 +83,31 @@ fun LoginScreen(
 
     // La saco del onClick para que el boton se lea limpio
     fun intentarIngresar() {
-        val ingresado = usuario.trim()
+        // El when sobre la sealed class no lleva else: el compilador sabe que
+        // ResultadoValidacion solo puede ser Valido o Invalido. Si manana
+        // agrego un tercer caso, Kotlin me obliga a cubrirlo aca.
+        when (val resultado = RepositorioUsuarios.validarLogin(usuario, contrasena)) {
 
-        if (ingresado.isEmpty() || contrasena.isEmpty()) {
-            mensaje = "Completa tu usuario y tu contraseña" to TipoMensaje.AVISO
-            vibrar(context, PatronVibracion.TOQUE)
-            return
-        }
+            is ResultadoValidacion.Invalido -> {
+                // critico distingue "te falto llenar algo" de "los datos estan
+                // malos". Cambia el tipo de aviso y la intensidad del pulso.
+                val tipo = if (resultado.critico) TipoMensaje.ERROR else TipoMensaje.AVISO
+                val patron = if (resultado.critico) {
+                    PatronVibracion.ERROR
+                } else {
+                    PatronVibracion.TOQUE
+                }
+                mensaje = resultado.mensaje to tipo
+                vibrar(context, patron)
+            }
 
-        val encontrado = RepositorioUsuarios.validarCredenciales(ingresado, contrasena)
-
-        if (encontrado == null) {
-            mensaje = "Usuario o contraseña incorrectos" to TipoMensaje.ERROR
-            vibrar(context, PatronVibracion.ERROR)
-        } else {
-            vibrar(context, PatronVibracion.EXITO)
-            onLoginExitoso(encontrado)
+            is ResultadoValidacion.Valido -> {
+                // Si la validacion paso, el usuario existe si o si
+                RepositorioUsuarios.validarCredenciales(usuario, contrasena)?.let { encontrado ->
+                    vibrar(context, PatronVibracion.EXITO)
+                    onLoginExitoso(encontrado)
+                }
+            }
         }
     }
 

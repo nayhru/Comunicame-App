@@ -54,6 +54,10 @@ import com.example.comunicame.ui.components.PatronVibracion
 import com.example.comunicame.ui.components.TipoMensaje
 import com.example.comunicame.ui.components.vibrar
 import com.example.comunicame.ui.theme.ComunicameTheme
+import com.example.comunicame.util.ResultadoValidacion
+import com.example.comunicame.util.aNombrePropio
+import com.example.comunicame.util.fuerzaContrasena
+import com.example.comunicame.util.limpio
 
 // REGISTRO. Da de alta un usuario y lo mete al mismo arreglo que despues
 // consulta el Login.
@@ -97,48 +101,39 @@ fun RegistroScreen(
 
     // Valida en orden, de lo mas barato a lo mas caro
     fun intentarRegistrar() {
-        val n = nombre.trim()
-        val u = usuario.trim()
-        val c = correo.trim()
+        // Las 9 validaciones que antes estaban aca ahora viven en el
+        // repositorio, encadenadas con lambdas. La pantalla solo reacciona al
+        // resultado, que es lo suyo.
+        val resultado = RepositorioUsuarios.validarRegistro(
+            nombre = nombre,
+            usuario = usuario,
+            correo = correo,
+            contrasena = contrasena,
+            repetir = repetir,
+            comuna = comuna,
+            aceptaTerminos = aceptaTerminos
+        )
 
-        when {
-            n.isEmpty() || u.isEmpty() || c.isEmpty() ||
-                contrasena.isEmpty() || repetir.isEmpty() -> {
-                mensaje = "Completa todos los campos" to TipoMensaje.AVISO
-                vibrar(context, PatronVibracion.TOQUE)
+        when (resultado) {
+
+            is ResultadoValidacion.Invalido -> {
+                val tipo = if (resultado.critico) TipoMensaje.ERROR else TipoMensaje.AVISO
+                val patron = if (resultado.critico) {
+                    PatronVibracion.ERROR
+                } else {
+                    PatronVibracion.TOQUE
+                }
+                mensaje = resultado.mensaje to tipo
+                vibrar(context, patron)
             }
 
-            comuna.isEmpty() -> {
-                mensaje = "Selecciona tu comuna" to TipoMensaje.AVISO
-                vibrar(context, PatronVibracion.TOQUE)
-            }
-
-            !c.contains("@") || !c.contains(".") -> {
-                mensaje = "El correo no tiene un formato válido" to TipoMensaje.AVISO
-                vibrar(context, PatronVibracion.TOQUE)
-            }
-
-            contrasena.length < 8 -> {
-                mensaje = "La contraseña debe tener al menos 8 caracteres" to TipoMensaje.AVISO
-                vibrar(context, PatronVibracion.TOQUE)
-            }
-
-            contrasena != repetir -> {
-                mensaje = "Las contraseñas no coinciden" to TipoMensaje.ERROR
-                vibrar(context, PatronVibracion.ERROR)
-            }
-
-            !aceptaTerminos -> {
-                mensaje = "Debes aceptar los términos para continuar" to TipoMensaje.AVISO
-                vibrar(context, PatronVibracion.TOQUE)
-            }
-
-            else -> {
+            is ResultadoValidacion.Valido -> {
                 val creado = RepositorioUsuarios.registrar(
                     Usuario(
-                        nombre = n,
-                        usuario = u,
-                        correo = c,
+                        // aNombrePropio arregla "ANA torres" -> "Ana Torres"
+                        nombre = nombre.aNombrePropio(),
+                        usuario = usuario.limpio.lowercase(),
+                        correo = correo.limpio.lowercase(),
                         contrasena = contrasena,
                         comuna = comuna,
                         preferencia = preferencia,
@@ -279,7 +274,20 @@ fun RegistroScreen(
                 colors = coloresCampo,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                supportingText = { Text("Mínimo 8 caracteres") },
+                supportingText = {
+                    // fuerzaContrasena cuenta cuantas reglas cumple (0 a 4).
+                    // El when traduce ese numero a un texto util en vez de
+                    // repetir siempre "minimo 8 caracteres".
+                    val fuerza = contrasena.fuerzaContrasena()
+                    val (texto, color) = when (fuerza) {
+                        0 -> "Mínimo 8 caracteres" to MaterialTheme.colorScheme.onSurfaceVariant
+                        1 -> "Muy débil" to MaterialTheme.colorScheme.error
+                        2 -> "Débil: agrega números o mayúsculas" to MaterialTheme.colorScheme.error
+                        3 -> "Aceptable" to MaterialTheme.colorScheme.onSurfaceVariant
+                        else -> "Segura" to MaterialTheme.colorScheme.primary
+                    }
+                    Text(text = texto, color = color)
+                },
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(12.dp))
