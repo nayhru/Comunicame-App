@@ -207,14 +207,8 @@ object RepositorioUsuarios {
         return true
     }
 
-    // Estadistica para Mi perfil: cuantos usuarios hay por preferencia.
-    // groupBy arma el Map y mapValues cambia las listas por su tamano.
-    fun conteoPorPreferencia(): Map<String, Int> =
-        usuarios.groupBy { it.preferencia }
-            .mapValues { (_, lista) -> lista.size }
-            .mapKeys { (pref, _) -> pref.etiqueta }
-
-    // Comunas distintas donde hay usuarios, sin repetir y ordenadas
-    fun comunasConUsuarios(): Set<String> =
-        usuarios.map { it.comuna }.toSortedSet()
+    // A proposito no hay funciones que expongan datos agregados de los usuarios
+    // (cuantos hay, en que comunas viven, como se comunican). Aunque sean
+    // estadisticas y no datos individuales, siguen siendo informacion de
+    // terceros y ninguna pantalla de la app tiene por que mostrarla.
 }

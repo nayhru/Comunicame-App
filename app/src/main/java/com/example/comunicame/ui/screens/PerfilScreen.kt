@@ -42,7 +42,8 @@ import com.example.comunicame.util.resumen
 // la misma app.
 @Composable
 fun PerfilScreen(nombreUsuario: String) {
-    val usuario = RepositorioUsuarios.usuarios.find { it.usuario == nombreUsuario }
+    // Solo los datos de quien tiene la sesion abierta
+    val usuario = RepositorioUsuarios.buscarPorUsuario(nombreUsuario)
 
     Column(
         modifier = Modifier
@@ -114,15 +115,20 @@ fun PerfilScreen(nombreUsuario: String) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Estadisticas armadas con groupBy. Cada Map se recorre con forEach
-        // desestructurando la entrada en (clave, valor).
+        // Frases disponibles por categoria.
+        //
+        // Aca NO va nada de otros usuarios. Mostrar cuanta gente hay registrada
+        // o en que comunas viven seria exponer datos de terceros en la pantalla
+        // personal de alguien, y ademas contradice la condicion de aceptacion
+        // del proyecto sobre exposicion de data sensible.
+        // El Map de este bloque cuenta frases, que son contenido de la app.
         Text(
-            text = "Resumen de la comunidad",
+            text = "Frases disponibles",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary
         )
         Text(
-            text = "Cómo se comunican las personas registradas.",
+            text = "Las que trae la app para usar en el día a día.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -137,29 +143,21 @@ fun PerfilScreen(nombreUsuario: String) {
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
 
-                // Map<String, Int> generado con groupBy + mapValues
-                val porPreferencia = RepositorioUsuarios.conteoPorPreferencia()
+                // Map<String, Int> armado con groupBy sobre el catalogo de
+                // frases. Se recorre desestructurando cada entrada en (clave, valor).
+                val porCategoria = RepositorioFrases.conteoPorCategoria()
 
-                porPreferencia.entries.forEachIndexed { indice, (etiqueta, cantidad) ->
+                porCategoria.entries.forEachIndexed { indice, (etiqueta, cantidad) ->
                     if (indice > 0) {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     }
-                    FilaPerfil(etiqueta, "$cantidad ${if (cantidad == 1) "persona" else "personas"}")
+                    FilaPerfil(etiqueta, "$cantidad ${if (cantidad == 1) "frase" else "frases"}")
                 }
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                // Set ordenado: comunas distintas, sin repetir
-                val comunas = RepositorioUsuarios.comunasConUsuarios()
-                FilaPerfil("Comunas", comunas.joinToString(", "))
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                // Otro Map, esta vez de frases por categoria
-                val totalSugeridas = RepositorioFrases.conteoPorCategoria()
-                    .values
-                    .sum()
-                FilaPerfil("Frases sugeridas", "$totalSugeridas en la app")
+                val total = porCategoria.values.sum()
+                FilaPerfil("Total sugeridas", "$total frases")
             }
         }
 

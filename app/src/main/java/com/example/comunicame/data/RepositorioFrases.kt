@@ -97,9 +97,20 @@ object RepositorioFrases {
     }
 
     // Estadistica para Mi perfil: cuantas frases hay por categoria.
-    // associateWith arma un Map recorriendo las categorias una sola vez.
-    fun conteoPorCategoria(): Map<String, Int> =
-        CategoriaFrase.entries.associateWith { cat ->
-            porCategoria[cat]?.size ?: 0
-        }.mapKeys { (cat, _) -> cat.etiqueta }
+    //
+    // Parte del Map que ya armo groupBy, cambia cada lista por su tamano con
+    // mapValues y despues reemplaza la clave del enum por su etiqueta legible
+    // con mapKeys. Las categorias sin frases se agregan aparte para que no
+    // desaparezcan de la tabla.
+    fun conteoPorCategoria(): Map<String, Int> {
+        val conFrases: Map<String, Int> = porCategoria
+            .mapValues { (_, lista) -> lista.size }
+            .mapKeys { (cat, _) -> cat.etiqueta }
+
+        val vacias: Map<String, Int> = CategoriaFrase.entries
+            .filter { it !in porCategoria.keys }
+            .associate { it.etiqueta to 0 }
+
+        return conFrases + vacias
+    }
 }
