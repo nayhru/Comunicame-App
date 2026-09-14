@@ -12,6 +12,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -34,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.comunicame.data.RepositorioUsuarios
@@ -55,6 +58,11 @@ fun RecuperarScreen(
     var correo by remember { mutableStateOf("") }
     var nueva by remember { mutableStateOf("") }
     var repetir by remember { mutableStateOf("") }
+
+    // Un estado por campo: la usuaria puede querer revisar solo una de las dos
+    var verNueva by remember { mutableStateOf(false) }
+    var verRepetir by remember { mutableStateOf(false) }
+
     var mensaje by remember { mutableStateOf<Pair<String, TipoMensaje>?>(null) }
 
     val context = LocalContext.current
@@ -146,8 +154,30 @@ fun RecuperarScreen(
                 singleLine = true,
                 shape = formaCampo,
                 colors = coloresCampo,
-                visualTransformation = PasswordVisualTransformation(),
+                // Tapa el texto salvo que pida verlo, igual que en el Login
+                visualTransformation = if (verNueva) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                trailingIcon = {
+                    IconButton(onClick = { verNueva = !verNueva }) {
+                        Icon(
+                            imageVector = if (verNueva) {
+                                Icons.Filled.VisibilityOff
+                            } else {
+                                Icons.Filled.Visibility
+                            },
+                            contentDescription = if (verNueva) {
+                                "Ocultar la contraseña nueva"
+                            } else {
+                                "Mostrar la contraseña nueva"
+                            },
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 supportingText = { Text("Mínimo 8 caracteres") },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -161,8 +191,30 @@ fun RecuperarScreen(
                 singleLine = true,
                 shape = formaCampo,
                 colors = coloresCampo,
-                visualTransformation = PasswordVisualTransformation(),
+                // Estado propio: se puede mirar una y dejar la otra tapada
+                visualTransformation = if (verRepetir) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                trailingIcon = {
+                    IconButton(onClick = { verRepetir = !verRepetir }) {
+                        Icon(
+                            imageVector = if (verRepetir) {
+                                Icons.Filled.VisibilityOff
+                            } else {
+                                Icons.Filled.Visibility
+                            },
+                            contentDescription = if (verRepetir) {
+                                "Ocultar la contraseña repetida"
+                            } else {
+                                "Mostrar la contraseña repetida"
+                            },
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 modifier = Modifier.fillMaxWidth()
             )
 

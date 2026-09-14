@@ -15,6 +15,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
@@ -44,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.comunicame.data.PreferenciaComunicacion
@@ -75,6 +78,11 @@ fun RegistroScreen(
     var correo by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
     var repetir by remember { mutableStateOf("") }
+
+    // Un estado por campo: son dos contrasenas distintas y la usuaria puede
+    // querer revisar solo una de las dos
+    var verContrasena by remember { mutableStateOf(false) }
+    var verRepetir by remember { mutableStateOf(false) }
 
     var comuna by remember { mutableStateOf("") }
     var comunaAbierta by remember { mutableStateOf(false) }
@@ -272,8 +280,32 @@ fun RegistroScreen(
                 singleLine = true,
                 shape = formaCampo,
                 colors = coloresCampo,
-                visualTransformation = PasswordVisualTransformation(),
+                // Tapa el texto salvo que pida verlo, igual que en el Login
+                visualTransformation = if (verContrasena) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                trailingIcon = {
+                    IconButton(onClick = { verContrasena = !verContrasena }) {
+                        Icon(
+                            imageVector = if (verContrasena) {
+                                Icons.Filled.VisibilityOff
+                            } else {
+                                Icons.Filled.Visibility
+                            },
+                            // Cambia con el estado. Si el boton hace dos cosas
+                            // no puede anunciarse igual siempre en el lector.
+                            contentDescription = if (verContrasena) {
+                                "Ocultar contraseña"
+                            } else {
+                                "Mostrar contraseña"
+                            },
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 supportingText = {
                     // fuerzaContrasena cuenta cuantas reglas cumple (0 a 4).
                     // El when traduce ese numero a un texto util en vez de
@@ -299,8 +331,30 @@ fun RegistroScreen(
                 singleLine = true,
                 shape = formaCampo,
                 colors = coloresCampo,
-                visualTransformation = PasswordVisualTransformation(),
+                // Estado propio: se puede mirar una y dejar la otra tapada
+                visualTransformation = if (verRepetir) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                trailingIcon = {
+                    IconButton(onClick = { verRepetir = !verRepetir }) {
+                        Icon(
+                            imageVector = if (verRepetir) {
+                                Icons.Filled.VisibilityOff
+                            } else {
+                                Icons.Filled.Visibility
+                            },
+                            contentDescription = if (verRepetir) {
+                                "Ocultar la contraseña repetida"
+                            } else {
+                                "Mostrar la contraseña repetida"
+                            },
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 modifier = Modifier.fillMaxWidth()
             )
 
