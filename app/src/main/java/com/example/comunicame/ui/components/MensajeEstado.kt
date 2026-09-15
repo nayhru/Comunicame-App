@@ -91,8 +91,8 @@ private fun MensajeEstadoPreview() {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            MensajeEstado("Sesion iniciada correctamente", TipoMensaje.EXITO)
-            MensajeEstado("Usuario o contrasena incorrectos", TipoMensaje.ERROR)
+            MensajeEstado("Sesión iniciada correctamente", TipoMensaje.EXITO)
+            MensajeEstado("Usuario o contraseña incorrectos", TipoMensaje.ERROR)
             MensajeEstado("La contrasena debe tener 8 caracteres", TipoMensaje.AVISO)
             MensajeEstado("Escribe un mensaje y presiona Reproducir", TipoMensaje.INFO)
         }

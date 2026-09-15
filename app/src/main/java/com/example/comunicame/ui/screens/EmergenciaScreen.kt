@@ -202,7 +202,6 @@ fun EmergenciaScreen(nombreUsuario: String) {
                     CeldaEncabezado("Servicio", Modifier.weight(1f))
                 }
 
-                // ----- Filas -----
                 serviciosEmergencia.forEachIndexed { indice, servicio ->
                     if (indice > 0) {
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline)

@@ -51,11 +51,8 @@ inline fun <T> List<T>.separarPor(criterio: (T) -> Boolean): Pair<List<T>, List<
     return siCumplen to noCumplen
 }
 
-// Funcion que devuelve otra funcion.
-//
-// En vez de escribir un if adentro del filtro por cada llamada, armo el criterio
-// una sola vez y lo reuso. La funcion de afuera decide la logica; la de adentro
-// la aplica.
+// En vez de escribir un if adentro del filtro cada vez, armo el criterio una
+// sola vez y lo reuso. La de afuera decide la logica, la de adentro la aplica.
 fun criterioDeLargo(maximo: Int): (String) -> Boolean = { texto ->
     texto.limpio.length <= maximo
 }

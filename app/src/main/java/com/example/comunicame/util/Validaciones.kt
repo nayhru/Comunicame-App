@@ -13,8 +13,6 @@ package com.example.comunicame.util
 // Largo minimo que exige la app para una contrasena
 const val LARGO_MINIMO_CONTRASENA = 8
 
-// ---------- Propiedades de extension ----------
-
 // Propiedad de extension: se consulta como si fuera un atributo del String,
 // sin parentesis. texto.limpio en vez de texto.limpio()
 val String.limpio: String
@@ -26,8 +24,6 @@ val String.estaVacio: Boolean
 // Cuenta las palabras reales, ignorando espacios de mas
 val String.cantidadPalabras: Int
     get() = limpio.split(" ").filter { it.isNotBlank() }.size
-
-// ---------- Funciones de extension ----------
 
 // Un correo valido necesita arroba, punto despues de la arroba y algo a cada lado
 fun String.esCorreoValido(): Boolean {
