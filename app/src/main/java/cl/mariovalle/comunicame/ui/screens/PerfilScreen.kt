@@ -35,6 +35,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.filled.ArrowDropDown
+import cl.mariovalle.comunicame.ui.components.CampoComuna
 import cl.mariovalle.comunicame.ui.components.SelectorComuna
 import cl.mariovalle.comunicame.data.RepositorioFrases
 import cl.mariovalle.comunicame.data.Usuario
@@ -399,36 +400,11 @@ fun PerfilScreen(
 
                     // Abre el selector con buscador en vez de desplegar las
                     // setenta comunas dentro de este dialogo.
-                    OutlinedTextField(
-                        value = comuna,
-                        onValueChange = { },
-                        readOnly = true,
-                        label = { Text("Comuna") },
-                        shape = RoundedCornerShape(12.dp),
-                        trailingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.ArrowDropDown,
-                                contentDescription = null
-                            )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            // readOnly bloquea el teclado pero tambien los
-                            // toques, asi que el clickable va en una capa
-                            // aparte sobre el campo.
-                            .clickable { eligiendoComuna = true }
+                    CampoComuna(
+                        comuna = comuna,
+                        region = ValidadorFormularios.regionDe(comuna),
+                        alTocar = { eligiendoComuna = true }
                     )
-
-                    // Deja visible a que region pertenece, para confirmar que
-                    // se eligio la correcta cuando hay nombres repetidos.
-                    ValidadorFormularios.regionDe(comuna)?.let { region ->
-                        Text(
-                            text = "Región: $region",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 4.dp, top = 4.dp)
-                        )
-                    }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
