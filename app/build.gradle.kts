@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -13,6 +15,21 @@ val hayConfiguracionFirebase = file("google-services.json").exists()
 if (hayConfiguracionFirebase) {
     apply(plugin = "com.google.gms.google-services")
 }
+
+// Credenciales de firma. Viven fuera del repositorio, en keystore.properties,
+// porque quien tenga el almacen de claves y su contrasena puede publicar
+// actualizaciones falsas de la aplicacion firmadas como autenticas.
+//
+// Si el archivo no esta, el proyecto compila igual y el APK de release sale
+// sin firmar: asi el repositorio se puede clonar y construir sin tener las
+// credenciales.
+val archivoCredenciales = rootProject.file("keystore.properties")
+val credencialesFirma = Properties().apply {
+    if (archivoCredenciales.exists()) {
+        archivoCredenciales.inputStream().use { load(it) }
+    }
+}
+val hayFirma = archivoCredenciales.exists()
 
 android {
     namespace = "cl.mariovalle.comunicame"
@@ -32,8 +49,31 @@ android {
         buildConfigField("boolean", "FIREBASE_DISPONIBLE", hayConfiguracionFirebase.toString())
     }
 
+    signingConfigs {
+        if (hayFirma) {
+            create("release") {
+                storeFile = rootProject.file(credencialesFirma.getProperty("storeFile"))
+                storePassword = credencialesFirma.getProperty("storePassword")
+                keyAlias = credencialesFirma.getProperty("keyAlias")
+                keyPassword = credencialesFirma.getProperty("keyPassword")
+
+                // Los dos esquemas que acepta Android desde la version 7.
+                // v1 permite instalar en equipos antiguos; v2 verifica el
+                // archivo completo y es mas rapido al instalar.
+                enableV1Signing = true
+                enableV2Signing = true
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (hayFirma) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+
+            // Sin ofuscar. El codigo de esta entrega se revisa como parte de
+            // la evaluacion, y minificar dejaria un APK imposible de leer.
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
