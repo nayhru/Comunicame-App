@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
@@ -55,7 +56,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import cl.mariovalle.comunicame.data.CategoriaFrase
+import cl.mariovalle.comunicame.data.FraseGuardada
 import cl.mariovalle.comunicame.data.RepositorioFrases
+import cl.mariovalle.comunicame.ui.viewmodel.FrasesViewModel
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cl.mariovalle.comunicame.ui.components.MensajeEstado
 import cl.mariovalle.comunicame.ui.components.PatronVibracion
 import cl.mariovalle.comunicame.ui.components.TipoMensaje
@@ -77,7 +82,20 @@ private enum class ModoComunicacion(val etiqueta: String) {
 // proceso, asi el usuario no supone que existe y le falla.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ComunicarScreen() {
+fun ComunicarScreen(
+    uid: String,
+    frasesViewModel: FrasesViewModel = viewModel()
+) {
+    // Carga las frases del usuario al entrar. La clave del LaunchedEffect es
+    // el uid: si cambia la cuenta, vuelve a consultar; mientras sea la misma,
+    // no repite la peticion en cada recomposicion.
+    LaunchedEffect(uid) {
+        frasesViewModel.cargar(uid)
+    }
+
+    // Frase que se esta editando, o null si no hay ninguna en edicion
+    var fraseEnEdicion by remember { mutableStateOf<FraseGuardada?>(null) }
+
     val context = LocalContext.current
 
     var modo by remember { mutableStateOf(ModoComunicacion.TEXTO_A_VOZ) }
@@ -86,6 +104,14 @@ fun ComunicarScreen() {
     var categoria by remember { mutableStateOf<CategoriaFrase?>(null) }
     var mensaje by remember { mutableStateOf<Pair<String, TipoMensaje>?>(null) }
     var dialogoAbierto by remember { mutableStateOf(false) }
+
+    // Los mensajes del ViewModel se muestran en el mismo banner que el resto
+    // de la pantalla, para que el usuario tenga un solo lugar donde mirar.
+    LaunchedEffect(frasesViewModel.error, frasesViewModel.aviso) {
+        frasesViewModel.error?.let { mensaje = it to TipoMensaje.ERROR }
+        frasesViewModel.aviso?.let { mensaje = it to TipoMensaje.EXITO }
+    }
+
     var fraseNueva by remember { mutableStateOf("") }
 
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
@@ -365,21 +391,26 @@ fun ComunicarScreen() {
                     Column(modifier = Modifier.weight(1f)) {
                         // contarQue recibe el criterio como lambda: cuento las
                         // que entran completas en una tarjeta de la grilla.
-                        val cortas = RepositorioFrases.guardadas
-                            .toList()
-                            .contarQue(criterioDeLargo(40))
+                        val textosGuardados = frasesViewModel.frases.map { it.texto }
+                        // contarQue recibe el criterio como lambda: cuento las
+                        // que entran completas en una tarjeta de la grilla.
+                        val cortas = textosGuardados.contarQue(criterioDeLargo(40))
 
                         EncabezadoSeccion(
                             titulo = "Mis frases",
-                            detalle = when (RepositorioFrases.guardadas.size) {
+                            detalle = when (textosGuardados.size) {
                                 0 -> "Las que tú guardas para tu día a día"
                                 cortas -> "Todas caben completas en la grilla"
-                                else -> "$cortas de ${RepositorioFrases.guardadas.size} " +
+                                else -> "$cortas de ${textosGuardados.size} " +
                                     "caben completas en la grilla"
                             }
                         )
                     }
-                    IconButton(onClick = { dialogoAbierto = true }) {
+                    IconButton(onClick = {
+                        fraseEnEdicion = null
+                        fraseNueva = ""
+                        dialogoAbierto = true
+                    }) {
                         Icon(
                             imageVector = Icons.Filled.Add,
                             contentDescription = "Guardar una frase nueva",
@@ -390,24 +421,33 @@ fun ComunicarScreen() {
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                if (RepositorioFrases.guardadas.isEmpty()) {
+                if (frasesViewModel.cargando && frasesViewModel.frases.isEmpty()) {
+                    MensajeEstado(
+                        texto = "Cargando tus frases guardadas...",
+                        tipo = TipoMensaje.INFO
+                    )
+                } else if (frasesViewModel.frases.isEmpty()) {
                     MensajeEstado(
                         texto = "Todavía no guardas frases. Usa el botón + para crear la primera.",
                         tipo = TipoMensaje.INFO
                     )
                 } else {
-                    RepositorioFrases.guardadas.forEach { frase ->
+                    frasesViewModel.frases.forEach { frase ->
                         FilaFraseGuardada(
-                            frase = frase,
+                            frase = frase.texto,
                             alTocar = {
-                                texto = frase
+                                texto = frase.texto
                                 mensaje = null
                                 vibrar(context, PatronVibracion.TOQUE)
                             },
+                            alEditar = {
+                                fraseEnEdicion = frase
+                                fraseNueva = frase.texto
+                                dialogoAbierto = true
+                            },
                             alEliminar = {
-                                RepositorioFrases.eliminar(frase)
+                                frasesViewModel.eliminar(frase.id)
                                 vibrar(context, PatronVibracion.TOQUE)
-                                mensaje = "Frase eliminada" to TipoMensaje.INFO
                             }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -434,8 +474,19 @@ fun ComunicarScreen() {
     // Dialogo para guardar una frase nueva
     if (dialogoAbierto) {
         AlertDialog(
-            onDismissRequest = { dialogoAbierto = false; fraseNueva = "" },
-            title = { Text("Guardar una frase") },
+            onDismissRequest = {
+                dialogoAbierto = false
+                fraseNueva = ""
+                fraseEnEdicion = null
+            },
+            // El mismo dialogo sirve para crear y para editar; el titulo dice
+            // cual de las dos cosas esta pasando.
+            title = {
+                Text(
+                    if (fraseEnEdicion == null) "Guardar una frase"
+                    else "Editar la frase"
+                )
+            },
             text = {
                 OutlinedTextField(
                     value = fraseNueva,
@@ -449,22 +500,32 @@ fun ComunicarScreen() {
             },
             confirmButton = {
                 TextButton(
+                    enabled = !frasesViewModel.cargando,
                     onClick = {
-                        val guardada = RepositorioFrases.guardar(fraseNueva)
-                        mensaje = if (guardada) {
+                        val enEdicion = fraseEnEdicion
+                        val alTerminar = {
                             vibrar(context, PatronVibracion.EXITO)
-                            "Frase guardada" to TipoMensaje.EXITO
-                        } else {
-                            vibrar(context, PatronVibracion.ERROR)
-                            "La frase está vacía o ya la tienes guardada" to TipoMensaje.AVISO
+                            fraseNueva = ""
+                            fraseEnEdicion = null
+                            dialogoAbierto = false
                         }
-                        fraseNueva = ""
-                        dialogoAbierto = false
+
+                        if (enEdicion == null) {
+                            frasesViewModel.agregar(fraseNueva) { alTerminar() }
+                        } else {
+                            frasesViewModel.editar(enEdicion.id, fraseNueva) { alTerminar() }
+                        }
                     }
-                ) { Text("Guardar") }
+                ) {
+                    Text(if (fraseEnEdicion == null) "Guardar" else "Actualizar")
+                }
             },
             dismissButton = {
-                TextButton(onClick = { dialogoAbierto = false; fraseNueva = "" }) {
+                TextButton(onClick = {
+                    dialogoAbierto = false
+                    fraseNueva = ""
+                    fraseEnEdicion = null
+                }) {
                     Text("Cancelar")
                 }
             }
@@ -515,6 +576,7 @@ private fun TarjetaFrase(frase: String, alTocar: () -> Unit) {
 private fun FilaFraseGuardada(
     frase: String,
     alTocar: () -> Unit,
+    alEditar: () -> Unit,
     alEliminar: () -> Unit
 ) {
     Card(
@@ -537,6 +599,15 @@ private fun FilaFraseGuardada(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f)
             )
+            IconButton(onClick = alEditar) {
+                Icon(
+                    imageVector = Icons.Filled.Edit,
+                    // La descripcion incluye la frase: con el lector de
+                    // pantalla, "Editar" a secas no dice cual de todas.
+                    contentDescription = "Editar la frase: $frase",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
             IconButton(onClick = alEliminar) {
                 Icon(
                     imageVector = Icons.Filled.Delete,
@@ -611,5 +682,5 @@ private fun SeccionPlanificada(
 @Preview(showBackground = true, widthDp = 360, heightDp = 900)
 @Composable
 private fun ComunicarScreenPreview() {
-    ComunicameTheme { ComunicarScreen() }
+    ComunicameTheme { ComunicarScreen(uid = "vista-previa") }
 }

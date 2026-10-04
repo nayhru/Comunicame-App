@@ -26,7 +26,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import cl.mariovalle.comunicame.data.RepositorioUsuarios
+import cl.mariovalle.comunicame.data.Usuario
+import cl.mariovalle.comunicame.ui.viewmodel.SesionViewModel
 import cl.mariovalle.comunicame.navigation.Rutas
 
 // Cada item de la barra inferior
@@ -48,7 +49,8 @@ private val secciones = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PanelPrincipal(
-    nombreUsuario: String,
+    usuario: Usuario,
+    sesionViewModel: SesionViewModel,
     onCerrarSesion: () -> Unit
 ) {
     val navInterno = rememberNavController()
@@ -57,8 +59,9 @@ fun PanelPrincipal(
     val entradaActual by navInterno.currentBackStackEntryAsState()
     val rutaActual = entradaActual?.destination?.route
 
-    val usuario = RepositorioUsuarios.usuarios.find { it.usuario == nombreUsuario }
-    val saludo = usuario?.nombre?.substringBefore(" ") ?: nombreUsuario
+    // El usuario llega ya cargado desde Firestore, asi que el panel no
+    // necesita consultarlo de nuevo.
+    val saludo = usuario.nombre.substringBefore(" ").ifBlank { usuario.usuario }
 
     val titulo = when (rutaActual) {
         Rutas.EMERGENCIA -> "Emergencia"
@@ -132,9 +135,9 @@ fun PanelPrincipal(
             startDestination = Rutas.COMUNICAR,
             modifier = Modifier.padding(relleno)
         ) {
-            composable(Rutas.COMUNICAR) { ComunicarScreen() }
-            composable(Rutas.EMERGENCIA) { EmergenciaScreen(nombreUsuario = nombreUsuario) }
-            composable(Rutas.PERFIL) { PerfilScreen(nombreUsuario = nombreUsuario) }
+            composable(Rutas.COMUNICAR) { ComunicarScreen(uid = usuario.uid) }
+            composable(Rutas.EMERGENCIA) { EmergenciaScreen(usuario = usuario) }
+            composable(Rutas.PERFIL) { PerfilScreen(usuario = usuario, sesionViewModel = sesionViewModel) }
         }
     }
 }

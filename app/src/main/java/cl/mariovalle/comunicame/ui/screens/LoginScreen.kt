@@ -42,27 +42,32 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import cl.mariovalle.comunicame.data.RepositorioUsuarios
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cl.mariovalle.comunicame.data.Usuario
+import cl.mariovalle.comunicame.ui.viewmodel.SesionViewModel
 import cl.mariovalle.comunicame.ui.components.MensajeEstado
 import cl.mariovalle.comunicame.ui.components.PatronVibracion
 import cl.mariovalle.comunicame.ui.components.TipoMensaje
 import cl.mariovalle.comunicame.ui.components.vibrar
 import cl.mariovalle.comunicame.ui.theme.ComunicameTheme
-import cl.mariovalle.comunicame.util.ResultadoValidacion
 
-// LOGIN. Pantalla de inicio, valida contra el arreglo de RepositorioUsuarios.
+// LOGIN. Pantalla de inicio, valida las credenciales contra Firebase Auth.
 // Fondo blanco y el lila solo de acento.
 // El resultado nunca se avisa con sonido: banner visual + vibracion.
 @Composable
 fun LoginScreen(
     onLoginExitoso: (Usuario) -> Unit,
     onIrARegistro: () -> Unit,
-    onIrARecuperar: () -> Unit
+    onIrARecuperar: () -> Unit,
+    sesionViewModel: SesionViewModel = viewModel()
 ) {
     // Estado. remember guarda el valor entre recomposiciones y mutableStateOf
     // hace que Compose lo observe.
-    var usuario by remember { mutableStateOf("") }
+    // Firebase Auth identifica a la persona por su correo, no por el nombre
+    // de usuario, asi que el campo cambio respecto de la entrega anterior.
+    var correo by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
     var verContrasena by remember { mutableStateOf(false) }
 
@@ -81,33 +86,27 @@ fun LoginScreen(
         cursorColor = MaterialTheme.colorScheme.primary
     )
 
+    // El error del ViewModel se traduce a banner y vibracion. LaunchedEffect
+    // reacciona cuando el valor cambia, sin repetir el aviso en cada
+    // recomposicion: sin esto el telefono vibraria al girar la pantalla.
+    LaunchedEffect(sesionViewModel.error) {
+        sesionViewModel.error?.let { textoError ->
+            mensaje = textoError to TipoMensaje.ERROR
+            vibrar(context, PatronVibracion.ERROR)
+        }
+    }
+
     // La saco del onClick para que el boton se lea limpio
     fun intentarIngresar() {
-        // El when sobre la sealed class no lleva else: el compilador sabe que
-        // ResultadoValidacion solo puede ser Valido o Invalido. Si manana
-        // agrego un tercer caso, Kotlin me obliga a cubrirlo aca.
-        when (val resultado = RepositorioUsuarios.validarLogin(usuario, contrasena)) {
+        mensaje = null
+        sesionViewModel.limpiarMensajes()
 
-            is ResultadoValidacion.Invalido -> {
-                // critico distingue "te falto llenar algo" de "los datos estan
-                // malos". Cambia el tipo de aviso y la intensidad del pulso.
-                val tipo = if (resultado.critico) TipoMensaje.ERROR else TipoMensaje.AVISO
-                val patron = if (resultado.critico) {
-                    PatronVibracion.ERROR
-                } else {
-                    PatronVibracion.TOQUE
-                }
-                mensaje = resultado.mensaje to tipo
-                vibrar(context, patron)
-            }
-
-            is ResultadoValidacion.Valido -> {
-                // Si la validacion paso, el usuario existe si o si
-                RepositorioUsuarios.validarCredenciales(usuario, contrasena)?.let { encontrado ->
-                    vibrar(context, PatronVibracion.EXITO)
-                    onLoginExitoso(encontrado)
-                }
-            }
+        // El ViewModel valida el formulario y, si pasa, consulta a Firebase.
+        // La respuesta tarda, asi que el resultado llega por el callback y por
+        // el estado de error, no como valor de retorno.
+        sesionViewModel.iniciarSesion(correo, contrasena) {
+            vibrar(context, PatronVibracion.EXITO)
+            sesionViewModel.usuario?.let(onLoginExitoso)
         }
     }
 
@@ -151,15 +150,18 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(40.dp))
 
         OutlinedTextField(
-            value = usuario,
+            value = correo,
             onValueChange = {
-                usuario = it
+                correo = it
                 mensaje = null // si esta corrigiendo, saco el error de antes
+                sesionViewModel.limpiarMensajes()
             },
-            label = { Text("Usuario") },
+            label = { Text("Correo") },
             singleLine = true,
             shape = formaCampo,
             colors = coloresCampo,
+            // Teclado con arroba a la vista, en vez del alfabetico normal
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -170,6 +172,7 @@ fun LoginScreen(
             onValueChange = {
                 contrasena = it
                 mensaje = null
+                sesionViewModel.limpiarMensajes()
             },
             label = { Text("Contraseña") },
             singleLine = true,
@@ -215,15 +218,26 @@ fun LoginScreen(
 
         Button(
             onClick = { intentarIngresar() },
+            // Deshabilitado mientras espera a Firebase: sin esto, tocar dos
+            // veces dispara dos inicios de sesion contra el servidor.
+            enabled = !sesionViewModel.cargando,
             shape = formaCampo,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp)
         ) {
-            Text(
-                text = "Iniciar sesión",
-                style = MaterialTheme.typography.labelLarge
-            )
+            if (sesionViewModel.cargando) {
+                CircularProgressIndicator(
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(22.dp)
+                )
+            } else {
+                Text(
+                    text = "Iniciar sesión",
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))

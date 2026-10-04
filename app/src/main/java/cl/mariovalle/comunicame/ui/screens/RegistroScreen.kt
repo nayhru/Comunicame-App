@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,14 +51,17 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import cl.mariovalle.comunicame.data.PreferenciaComunicacion
-import cl.mariovalle.comunicame.data.RepositorioUsuarios
+import cl.mariovalle.comunicame.data.ValidadorFormularios
+import cl.mariovalle.comunicame.ui.viewmodel.SesionViewModel
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cl.mariovalle.comunicame.data.Usuario
 import cl.mariovalle.comunicame.ui.components.MensajeEstado
 import cl.mariovalle.comunicame.ui.components.PatronVibracion
 import cl.mariovalle.comunicame.ui.components.TipoMensaje
 import cl.mariovalle.comunicame.ui.components.vibrar
 import cl.mariovalle.comunicame.ui.theme.ComunicameTheme
-import cl.mariovalle.comunicame.util.ResultadoValidacion
 import cl.mariovalle.comunicame.util.aNombrePropio
 import cl.mariovalle.comunicame.util.fuerzaContrasena
 import cl.mariovalle.comunicame.util.limpio
@@ -70,6 +74,7 @@ import cl.mariovalle.comunicame.util.limpio
 @Composable
 fun RegistroScreen(
     onRegistroExitoso: () -> Unit,
+    sesionViewModel: SesionViewModel = viewModel(),
     onVolver: () -> Unit
 ) {
     // Estado del formulario
@@ -108,58 +113,37 @@ fun RegistroScreen(
     )
 
     // Valida en orden, de lo mas barato a lo mas caro
+    LaunchedEffect(sesionViewModel.error) {
+        sesionViewModel.error?.let { textoError ->
+            mensaje = textoError to TipoMensaje.ERROR
+            vibrar(context, PatronVibracion.ERROR)
+        }
+    }
+
     fun intentarRegistrar() {
-        // Las 9 validaciones que antes estaban aca ahora viven en el
-        // repositorio, encadenadas con lambdas. La pantalla solo reacciona al
-        // resultado, que es lo suyo.
-        val resultado = RepositorioUsuarios.validarRegistro(
-            nombre = nombre,
-            usuario = usuario,
-            correo = correo,
+        mensaje = null
+        sesionViewModel.limpiarMensajes()
+
+        // Las validaciones de formato se resuelven aqui mismo, sin gastar una
+        // peticion. Si el correo ya esta tomado lo dice Firebase, que es el
+        // unico que conoce todas las cuentas.
+        sesionViewModel.registrar(
+            // aNombrePropio arregla "ANA torres" -> "Ana Torres"
+            nombre = nombre.aNombrePropio(),
+            nombreUsuario = usuario.limpio.lowercase(),
+            correo = correo.limpio.lowercase(),
             contrasena = contrasena,
             repetir = repetir,
             comuna = comuna,
-            aceptaTerminos = aceptaTerminos
-        )
-
-        when (resultado) {
-
-            is ResultadoValidacion.Invalido -> {
-                val tipo = if (resultado.critico) TipoMensaje.ERROR else TipoMensaje.AVISO
-                val patron = if (resultado.critico) {
-                    PatronVibracion.ERROR
-                } else {
-                    PatronVibracion.TOQUE
-                }
-                mensaje = resultado.mensaje to tipo
-                vibrar(context, patron)
-            }
-
-            is ResultadoValidacion.Valido -> {
-                val creado = RepositorioUsuarios.registrar(
-                    Usuario(
-                        // aNombrePropio arregla "ANA torres" -> "Ana Torres"
-                        nombre = nombre.aNombrePropio(),
-                        usuario = usuario.limpio.lowercase(),
-                        correo = correo.limpio.lowercase(),
-                        contrasena = contrasena,
-                        comuna = comuna,
-                        preferencia = preferencia,
-                        alertasVisuales = alertasVisuales,
-                        vibracion = vibracion,
-                        subtitulos = subtitulos
-                    )
-                )
-
-                if (creado) {
-                    vibrar(context, PatronVibracion.EXITO)
-                    mensaje = "Cuenta creada. Ya puedes iniciar sesión" to TipoMensaje.EXITO
-                    onRegistroExitoso()
-                } else {
-                    vibrar(context, PatronVibracion.ERROR)
-                    mensaje = "Ese usuario o correo ya está registrado" to TipoMensaje.ERROR
-                }
-            }
+            preferencia = preferencia,
+            aceptaTerminos = aceptaTerminos,
+            alertasVisuales = alertasVisuales,
+            vibracion = vibracion,
+            subtitulos = subtitulos
+        ) {
+            vibrar(context, PatronVibracion.EXITO)
+            mensaje = "Cuenta creada. Ya puedes iniciar sesión" to TipoMensaje.EXITO
+            onRegistroExitoso()
         }
     }
 
@@ -258,7 +242,7 @@ fun RegistroScreen(
                     expanded = comunaAbierta,
                     onDismissRequest = { comunaAbierta = false }
                 ) {
-                    RepositorioUsuarios.comunas.forEach { opcion ->
+                    ValidadorFormularios.comunas.forEach { opcion ->
                         DropdownMenuItem(
                             text = { Text(opcion) },
                             onClick = {
@@ -443,12 +427,21 @@ fun RegistroScreen(
 
             Button(
                 onClick = { intentarRegistrar() },
+                enabled = !sesionViewModel.cargando,
                 shape = formaCampo,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp)
             ) {
-                Text("Registrarme", style = MaterialTheme.typography.labelLarge)
+                if (sesionViewModel.cargando) {
+                    CircularProgressIndicator(
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                } else {
+                    Text("Registrarme", style = MaterialTheme.typography.labelLarge)
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))

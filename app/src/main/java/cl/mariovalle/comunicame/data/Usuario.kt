@@ -4,19 +4,84 @@ package cl.mariovalle.comunicame.data
 enum class PreferenciaComunicacion(val etiqueta: String) {
     LENGUA_DE_SENAS("Lengua de señas"),
     TEXTO_ESCRITO("Texto escrito"),
-    LECTURA_LABIAL("Lectura labial")
+    LECTURA_LABIAL("Lectura labial");
+
+    companion object {
+        // Firestore devuelve el enum como texto. Si el valor guardado no
+        // corresponde a ninguna constante (por ejemplo, un documento escrito
+        // por una version anterior), se usa texto escrito en vez de reventar.
+        fun desdeNombre(nombre: String?): PreferenciaComunicacion =
+            entries.firstOrNull { it.name == nombre } ?: TEXTO_ESCRITO
+    }
 }
 
-// La contrasena va en texto plano porque esta entrega no lleva base de datos.
-// Esta declarado en las restricciones del proyecto.
+// Datos de la cuenta.
+//
+// La contrasena no esta aca y no se guarda en ninguna parte de la aplicacion.
+// De eso se encarga Firebase Authentication, que almacena un hash en sus
+// servidores y nunca lo devuelve. Hasta la entrega anterior el campo existia
+// en texto plano porque no habia base de datos; ahora seria tanto innecesario
+// como peligroso.
+//
+// El uid lo asigna Firebase Auth al crear la cuenta y es la llave del documento
+// en Firestore. Va vacio mientras el usuario todavia no se registra.
 data class Usuario(
-    val nombre: String,
-    val usuario: String,
-    val correo: String,
-    val contrasena: String,
-    val comuna: String,
-    val preferencia: PreferenciaComunicacion,
+    val uid: String = "",
+    val nombre: String = "",
+    val usuario: String = "",
+    val correo: String = "",
+    val comuna: String = "",
+    val preferencia: PreferenciaComunicacion = PreferenciaComunicacion.TEXTO_ESCRITO,
     val alertasVisuales: Boolean = true,
     val vibracion: Boolean = true,
     val subtitulos: Boolean = true
-)
+) {
+
+    // Convierte el usuario al mapa que entiende Firestore.
+    //
+    // Se escribe a mano en vez de dejar que Firestore serialice el objeto
+    // porque asi el enum queda guardado por su nombre y no por su posicion:
+    // si mañana se agrega una preferencia en medio de la lista, los documentos
+    // ya guardados siguen significando lo mismo.
+    fun aMapa(): Map<String, Any> = mapOf(
+        CAMPO_NOMBRE to nombre,
+        CAMPO_USUARIO to usuario,
+        CAMPO_CORREO to correo,
+        CAMPO_COMUNA to comuna,
+        CAMPO_PREFERENCIA to preferencia.name,
+        CAMPO_ALERTAS to alertasVisuales,
+        CAMPO_VIBRACION to vibracion,
+        CAMPO_SUBTITULOS to subtitulos
+    )
+
+    companion object {
+        const val CAMPO_NOMBRE = "nombre"
+        const val CAMPO_USUARIO = "usuario"
+        const val CAMPO_CORREO = "correo"
+        const val CAMPO_COMUNA = "comuna"
+        const val CAMPO_PREFERENCIA = "preferencia"
+        const val CAMPO_ALERTAS = "alertasVisuales"
+        const val CAMPO_VIBRACION = "vibracion"
+        const val CAMPO_SUBTITULOS = "subtitulos"
+
+        // Reconstruye el usuario a partir de lo que vino de Firestore.
+        //
+        // Cada campo se lee con un valor por omision porque un documento puede
+        // estar incompleto: alguien pudo editarlo desde la consola, o quedo a
+        // medias si se corto la conexion durante el registro. Es preferible
+        // mostrar un perfil con un dato en blanco que cerrar la aplicacion.
+        fun desdeMapa(uid: String, datos: Map<String, Any?>): Usuario = Usuario(
+            uid = uid,
+            nombre = datos[CAMPO_NOMBRE] as? String ?: "",
+            usuario = datos[CAMPO_USUARIO] as? String ?: "",
+            correo = datos[CAMPO_CORREO] as? String ?: "",
+            comuna = datos[CAMPO_COMUNA] as? String ?: "",
+            preferencia = PreferenciaComunicacion.desdeNombre(
+                datos[CAMPO_PREFERENCIA] as? String
+            ),
+            alertasVisuales = datos[CAMPO_ALERTAS] as? Boolean ?: true,
+            vibracion = datos[CAMPO_VIBRACION] as? Boolean ?: true,
+            subtitulos = datos[CAMPO_SUBTITULOS] as? Boolean ?: true
+        )
+    }
+}

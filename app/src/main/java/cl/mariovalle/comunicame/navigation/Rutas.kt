@@ -10,11 +10,10 @@ object Rutas {
     const val REGISTRO = "registro"
     const val RECUPERAR = "recuperar"
 
-    // El panel recibe el usuario como argumento
-    const val ARG_USUARIO = "usuario"
-    const val PANEL = "panel/{$ARG_USUARIO}"
-
-    fun panelDe(usuario: String) = "panel/$usuario"
+    // El panel ya no lleva el usuario en la ruta: lo toma del ViewModel de
+    // sesion. Pasarlo por la URL obligaba a reconsultarlo en cada pantalla y
+    // dejaba el nombre a la vista en la pila de navegacion.
+    const val PANEL = "panel"
 
     // Grafo interno del panel, el de la barra inferior
     const val COMUNICAR = "comunicar"

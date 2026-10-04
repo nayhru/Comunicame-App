@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -39,29 +40,32 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import cl.mariovalle.comunicame.data.RepositorioUsuarios
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cl.mariovalle.comunicame.ui.components.MensajeEstado
 import cl.mariovalle.comunicame.ui.components.PatronVibracion
 import cl.mariovalle.comunicame.ui.components.TipoMensaje
 import cl.mariovalle.comunicame.ui.components.vibrar
 import cl.mariovalle.comunicame.ui.theme.ComunicameTheme
-import cl.mariovalle.comunicame.util.ResultadoValidacion
+import cl.mariovalle.comunicame.ui.viewmodel.SesionViewModel
 
-// RECUPERAR CONTRASENA. Valida el correo contra el arreglo y cambia la clave.
-// No manda correo real ni genera token porque esta entrega no tiene backend.
-// Esta declarado en las restricciones, no es algo a medio hacer.
+// RECUPERAR CONTRASENA.
+//
+// Ahora la pantalla solo pide el correo: Firebase envia un enlace y la persona
+// define la clave nueva en esa pagina. La aplicacion ya no toca la contrasena
+// en ningun momento, que es lo correcto y ademas lo unico posible, porque
+// Firebase guarda un hash y no la devuelve nunca.
+//
+// Hasta la entrega anterior esta pantalla cambiaba la clave directamente en la
+// lista en memoria, sin verificar que quien la pedia fuera el dueno del correo.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecuperarScreen(
-    onVolver: () -> Unit
+    onVolver: () -> Unit,
+    sesionViewModel: SesionViewModel = viewModel()
 ) {
     var correo by remember { mutableStateOf("") }
-    var nueva by remember { mutableStateOf("") }
-    var repetir by remember { mutableStateOf("") }
-
-    // Un estado por campo: la usuaria puede querer revisar solo una de las dos
-    var verNueva by remember { mutableStateOf(false) }
-    var verRepetir by remember { mutableStateOf(false) }
 
     var mensaje by remember { mutableStateOf<Pair<String, TipoMensaje>?>(null) }
 
@@ -73,28 +77,25 @@ fun RecuperarScreen(
         cursorColor = MaterialTheme.colorScheme.primary
     )
 
-    fun intentarActualizar() {
-        when (val resultado = RepositorioUsuarios.validarRecuperacion(correo, nueva, repetir)) {
-
-            is ResultadoValidacion.Invalido -> {
-                val tipo = if (resultado.critico) TipoMensaje.ERROR else TipoMensaje.AVISO
-                val patron = if (resultado.critico) {
-                    PatronVibracion.ERROR
-                } else {
-                    PatronVibracion.TOQUE
-                }
-                mensaje = resultado.mensaje to tipo
-                vibrar(context, patron)
-            }
-
-            is ResultadoValidacion.Valido -> {
-                RepositorioUsuarios.actualizarContrasena(correo, nueva)
-                vibrar(context, PatronVibracion.EXITO)
-                mensaje = "Contraseña actualizada. Ya puedes iniciar sesión" to TipoMensaje.EXITO
-                nueva = ""
-                repetir = ""
-            }
+    LaunchedEffect(sesionViewModel.error) {
+        sesionViewModel.error?.let { textoError ->
+            mensaje = textoError to TipoMensaje.ERROR
+            vibrar(context, PatronVibracion.ERROR)
         }
+    }
+
+    LaunchedEffect(sesionViewModel.aviso) {
+        sesionViewModel.aviso?.let { textoAviso ->
+            mensaje = textoAviso to TipoMensaje.EXITO
+            vibrar(context, PatronVibracion.EXITO)
+            correo = ""
+        }
+    }
+
+    fun intentarEnviarEnlace() {
+        mensaje = null
+        sesionViewModel.limpiarMensajes()
+        sesionViewModel.recuperarContrasena(correo)
     }
 
     Scaffold(
@@ -127,7 +128,8 @@ fun RecuperarScreen(
         ) {
 
             Text(
-                text = "Ingresa el correo con el que te registraste y define una contraseña nueva.",
+                text = "Escribe el correo con el que te registraste. Te enviaremos un " +
+                    "enlace para crear una contraseña nueva.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -136,85 +138,16 @@ fun RecuperarScreen(
 
             OutlinedTextField(
                 value = correo,
-                onValueChange = { correo = it; mensaje = null },
+                onValueChange = {
+                    correo = it
+                    mensaje = null
+                    sesionViewModel.limpiarMensajes()
+                },
                 label = { Text("Correo registrado") },
                 singleLine = true,
                 shape = formaCampo,
                 colors = coloresCampo,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = nueva,
-                onValueChange = { nueva = it; mensaje = null },
-                label = { Text("Nueva contraseña") },
-                singleLine = true,
-                shape = formaCampo,
-                colors = coloresCampo,
-                // Tapa el texto salvo que pida verlo, igual que en el Login
-                visualTransformation = if (verNueva) {
-                    VisualTransformation.None
-                } else {
-                    PasswordVisualTransformation()
-                },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                trailingIcon = {
-                    IconButton(onClick = { verNueva = !verNueva }) {
-                        Icon(
-                            imageVector = if (verNueva) {
-                                Icons.Filled.VisibilityOff
-                            } else {
-                                Icons.Filled.Visibility
-                            },
-                            contentDescription = if (verNueva) {
-                                "Ocultar la contraseña nueva"
-                            } else {
-                                "Mostrar la contraseña nueva"
-                            },
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                supportingText = { Text("Mínimo 8 caracteres") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = repetir,
-                onValueChange = { repetir = it; mensaje = null },
-                label = { Text("Repetir nueva contraseña") },
-                singleLine = true,
-                shape = formaCampo,
-                colors = coloresCampo,
-                // Estado propio: se puede mirar una y dejar la otra tapada
-                visualTransformation = if (verRepetir) {
-                    VisualTransformation.None
-                } else {
-                    PasswordVisualTransformation()
-                },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                trailingIcon = {
-                    IconButton(onClick = { verRepetir = !verRepetir }) {
-                        Icon(
-                            imageVector = if (verRepetir) {
-                                Icons.Filled.VisibilityOff
-                            } else {
-                                Icons.Filled.Visibility
-                            },
-                            contentDescription = if (verRepetir) {
-                                "Ocultar la contraseña repetida"
-                            } else {
-                                "Mostrar la contraseña repetida"
-                            },
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -226,13 +159,22 @@ fun RecuperarScreen(
             Spacer(modifier = Modifier.height(28.dp))
 
             Button(
-                onClick = { intentarActualizar() },
+                onClick = { intentarEnviarEnlace() },
+                enabled = !sesionViewModel.cargando,
                 shape = formaCampo,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp)
             ) {
-                Text("Actualizar contraseña", style = MaterialTheme.typography.labelLarge)
+                if (sesionViewModel.cargando) {
+                    CircularProgressIndicator(
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                } else {
+                    Text("Enviar enlace", style = MaterialTheme.typography.labelLarge)
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))

@@ -41,7 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cl.mariovalle.comunicame.data.RepositorioUsuarios
+import cl.mariovalle.comunicame.data.Usuario
 import cl.mariovalle.comunicame.data.ServicioEmergencia
 import cl.mariovalle.comunicame.data.serviciosEmergencia
 import cl.mariovalle.comunicame.ui.components.MensajeEstado
@@ -55,9 +55,8 @@ import cl.mariovalle.comunicame.ui.theme.ComunicameTheme
 // primero no es marcar, es la tarjeta grande que se le muestra al que este al
 // lado. Los numeros van despues, para que marque esa persona.
 @Composable
-fun EmergenciaScreen(nombreUsuario: String) {
+fun EmergenciaScreen(usuario: Usuario) {
     val context = LocalContext.current
-    val usuario = RepositorioUsuarios.buscarPorUsuario(nombreUsuario)
 
     var avisoMarcador by remember { mutableStateOf<String?>(null) }
 
@@ -269,13 +268,13 @@ fun EmergenciaScreen(nombreUsuario: String) {
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                FilaDato("Nombre", usuario?.nombre ?: "—")
+                FilaDato("Nombre", usuario.nombre.ifBlank { "—" })
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                FilaDato("Comuna", usuario?.comuna ?: "—")
+                FilaDato("Comuna", usuario.comuna.ifBlank { "—" })
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                FilaDato("Se comunica por", usuario?.preferencia?.etiqueta ?: "—")
+                FilaDato("Se comunica por", usuario.preferencia.etiqueta)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                FilaDato("Correo", usuario?.correo ?: "—")
+                FilaDato("Correo", usuario.correo.ifBlank { "—" })
             }
         }
 
@@ -324,5 +323,12 @@ private fun FilaDato(etiqueta: String, valor: String) {
 @Preview(showBackground = true, widthDp = 360, heightDp = 900)
 @Composable
 private fun EmergenciaScreenPreview() {
-    ComunicameTheme { EmergenciaScreen(nombreUsuario = "ana") }
+    ComunicameTheme { EmergenciaScreen(
+            usuario = Usuario(
+                nombre = "Ana Torres",
+                usuario = "ana",
+                correo = "ana.torres@correo.cl",
+                comuna = "Santiago"
+            )
+        ) }
 }
