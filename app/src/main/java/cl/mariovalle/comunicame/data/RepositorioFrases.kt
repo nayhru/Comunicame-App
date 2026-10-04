@@ -40,8 +40,10 @@ object RepositorioFrases {
             Frase("Habla más lento, por favor", CategoriaFrase.AYUDA),
             Frase("¿Cuánto cuesta?", CategoriaFrase.COMPRAS),
             Frase("Vengo a retirar un pedido", CategoriaFrase.COMPRAS),
+            Frase("Vengo a retirar un pedido en caja", CategoriaFrase.COMPRAS),
             Frase("¿Dónde está el baño?", CategoriaFrase.ORIENTACION),
             Frase("¿Me puedes anotar la dirección?", CategoriaFrase.ORIENTACION),
+            Frase("Mi cita médica es a las tres", CategoriaFrase.ORIENTACION),
             Frase("Un momento, estoy escribiendo", CategoriaFrase.SALUDO)
         )
     }
