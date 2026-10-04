@@ -51,6 +51,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import cl.mariovalle.comunicame.data.PreferenciaComunicacion
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.ArrowDropDown
+import cl.mariovalle.comunicame.ui.components.SelectorComuna
 import cl.mariovalle.comunicame.data.ValidadorFormularios
 import cl.mariovalle.comunicame.ui.viewmodel.SesionViewModel
 import androidx.compose.material3.CircularProgressIndicator
@@ -90,7 +93,7 @@ fun RegistroScreen(
     var verRepetir by remember { mutableStateOf(false) }
 
     var comuna by remember { mutableStateOf("") }
-    var comunaAbierta by remember { mutableStateOf(false) }
+    var eligiendoComuna by remember { mutableStateOf(false) }
 
     // Radios, una sola opcion
     var preferencia by remember { mutableStateOf(PreferenciaComunicacion.LENGUA_DE_SENAS) }
@@ -217,42 +220,39 @@ fun RegistroScreen(
             )
             Spacer(modifier = Modifier.height(12.dp))
 
-            // COMBO BOX. readOnly obliga a elegir de la lista, asi no llegan
-            // comunas mal escritas.
-            ExposedDropdownMenuBox(
-                expanded = comunaAbierta,
-                onExpandedChange = { comunaAbierta = it }
-            ) {
-                OutlinedTextField(
-                    value = comuna,
-                    onValueChange = { },
-                    readOnly = true,
-                    label = { Text("Comuna") },
-                    shape = formaCampo,
-                    colors = coloresCampo,
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = comunaAbierta)
-                    },
-                    modifier = Modifier
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                        .fillMaxWidth()
-                )
-
-                ExposedDropdownMenu(
-                    expanded = comunaAbierta,
-                    onDismissRequest = { comunaAbierta = false }
-                ) {
-                    ValidadorFormularios.comunas.forEach { opcion ->
-                        DropdownMenuItem(
-                            text = { Text(opcion) },
-                            onClick = {
-                                comuna = opcion
-                                comunaAbierta = false
-                                mensaje = null
-                            }
-                        )
+            // Selector de comuna con buscador, agrupado por region. El mismo
+            // que usa Mi perfil: con mas de setenta comunas, un desplegable
+            // plano obliga a recorrer la lista a ciegas.
+            OutlinedTextField(
+                value = comuna,
+                onValueChange = { },
+                readOnly = true,
+                label = { Text("Comuna") },
+                shape = formaCampo,
+                colors = coloresCampo,
+                trailingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.ArrowDropDown,
+                        contentDescription = null
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // readOnly bloquea el teclado y tambien los toques, asi
+                    // que el clickable va encima del campo.
+                    .clickable {
+                        eligiendoComuna = true
+                        mensaje = null
                     }
-                }
+            )
+
+            ValidadorFormularios.regionDe(comuna)?.let { region ->
+                Text(
+                    text = "Región: $region",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                )
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -458,6 +458,15 @@ fun RegistroScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
         }
+    }
+
+    // SELECTOR DE COMUNA
+    if (eligiendoComuna) {
+        SelectorComuna(
+            comunaElegida = comuna,
+            alElegir = { comuna = it },
+            alCerrar = { eligiendoComuna = false }
+        )
     }
 }
 

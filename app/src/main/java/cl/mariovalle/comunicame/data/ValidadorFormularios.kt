@@ -21,11 +21,63 @@ import cl.mariovalle.comunicame.util.tieneLargoMinimo
 // gastar una peticion ni hacerlo esperar.
 object ValidadorFormularios {
 
-    // Opciones del combo box de Registro
-    val comunas = listOf(
-        "Santiago", "Maipu", "Puente Alto", "La Florida",
-        "Nunoa", "Providencia", "Las Condes", "San Bernardo"
+    // Comunas agrupadas por region.
+    //
+    // Hasta la entrega anterior solo habia comunas de Santiago, lo que dejaba
+    // fuera a cualquier persona del resto del pais. Agrupar por region permite
+    // que el selector filtre primero y no muestre cuarenta opciones de golpe.
+    //
+    // La lista no pretende ser completa: trae las capitales regionales y las
+    // ciudades mas pobladas, mas una opcion para quien no encuentre la suya.
+    val comunasPorRegion: Map<String, List<String>> = linkedMapOf(
+        "Arica y Parinacota" to listOf("Arica", "Putre"),
+        "Tarapaca" to listOf("Iquique", "Alto Hospicio", "Pozo Almonte"),
+        "Antofagasta" to listOf("Antofagasta", "Calama", "Tocopilla", "Mejillones"),
+        "Atacama" to listOf("Copiapo", "Vallenar", "Chanaral", "Caldera"),
+        "Coquimbo" to listOf("La Serena", "Coquimbo", "Ovalle", "Illapel"),
+        "Valparaiso" to listOf(
+            "Valparaiso", "Vina del Mar", "Quilpue", "Villa Alemana",
+            "San Antonio", "Quillota", "Los Andes", "San Felipe"
+        ),
+        "Metropolitana" to listOf(
+            "Santiago", "Maipu", "Puente Alto", "La Florida",
+            "Nunoa", "Providencia", "Las Condes", "San Bernardo",
+            "La Pintana", "El Bosque", "Penalolen", "Quilicura",
+            "Recoleta", "Independencia", "La Cisterna", "Melipilla"
+        ),
+        "O'Higgins" to listOf("Rancagua", "San Fernando", "Rengo", "Santa Cruz"),
+        "Maule" to listOf("Talca", "Curico", "Linares", "Constitucion"),
+        "Nuble" to listOf("Chillan", "San Carlos", "Bulnes"),
+        "Biobio" to listOf(
+            "Concepcion", "Talcahuano", "Los Angeles",
+            "Coronel", "San Pedro de la Paz", "Chiguayante"
+        ),
+        "La Araucania" to listOf("Temuco", "Padre Las Casas", "Villarrica", "Angol"),
+        "Los Rios" to listOf("Valdivia", "La Union", "Panguipulli"),
+        "Los Lagos" to listOf("Puerto Montt", "Osorno", "Castro", "Ancud"),
+        "Aysen" to listOf("Coyhaique", "Puerto Aysen"),
+        "Magallanes" to listOf("Punta Arenas", "Puerto Natales"),
+        "Otra" to listOf("Otra comuna")
     )
+
+    // Todas las comunas en una sola lista, para validar y para el buscador.
+    val comunas: List<String> = comunasPorRegion.values.flatten()
+
+    // Region a la que pertenece una comuna, o null si no esta en la lista.
+    // La usa el selector para abrirse mostrando la region correcta.
+    fun regionDe(comuna: String): String? =
+        comunasPorRegion.entries.firstOrNull { (_, lista) -> comuna in lista }?.key
+
+    // Filtra por texto escrito, sin distinguir mayusculas ni tildes del
+    // teclado. Devuelve las comunas agrupadas tal como se muestran.
+    fun buscarComunas(termino: String): Map<String, List<String>> {
+        val limpio = termino.trim().lowercase()
+        if (limpio.isEmpty()) return comunasPorRegion
+
+        return comunasPorRegion
+            .mapValues { (_, lista) -> lista.filter { it.lowercase().contains(limpio) } }
+            .filterValues { it.isNotEmpty() }
+    }
 
     // El login solo comprueba que haya algo escrito. Si las credenciales son
     // correctas lo dice Firebase, y a proposito con un mensaje unico para

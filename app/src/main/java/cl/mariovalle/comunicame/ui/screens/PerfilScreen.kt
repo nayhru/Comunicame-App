@@ -30,10 +30,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import cl.mariovalle.comunicame.data.RepositorioFrases
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.RadioButton
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material.icons.filled.ArrowDropDown
+import cl.mariovalle.comunicame.ui.components.SelectorComuna
+import cl.mariovalle.comunicame.data.RepositorioFrases
 import cl.mariovalle.comunicame.data.Usuario
 import cl.mariovalle.comunicame.ui.theme.ComunicameTheme
 import androidx.compose.material3.AlertDialog
@@ -52,6 +55,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import cl.mariovalle.comunicame.data.ValidadorFormularios
 import cl.mariovalle.comunicame.ui.components.MensajeEstado
 import cl.mariovalle.comunicame.ui.components.TipoMensaje
+import androidx.compose.runtime.LaunchedEffect
+import cl.mariovalle.comunicame.ui.viewmodel.FrasesViewModel
 import cl.mariovalle.comunicame.ui.viewmodel.PerfilViewModel
 import cl.mariovalle.comunicame.ui.viewmodel.SesionViewModel
 import cl.mariovalle.comunicame.util.criterioDeLargo
@@ -65,9 +70,20 @@ import cl.mariovalle.comunicame.util.separarPor
 fun PerfilScreen(
     usuario: Usuario,
     sesionViewModel: SesionViewModel,
-    perfilViewModel: PerfilViewModel = viewModel()
+    perfilViewModel: PerfilViewModel = viewModel(),
+    frasesViewModel: FrasesViewModel = viewModel()
 ) {
+    // Las frases del usuario, para el contador y el listado. Se piden a
+    // Firestore igual que en la pantalla de comunicacion; antes esta pantalla
+    // leia la lista de ejemplo en memoria y mostraba frases que la persona
+    // nunca habia guardado.
+    LaunchedEffect(usuario.uid) {
+        frasesViewModel.cargar(usuario.uid)
+    }
+    val misFrases = frasesViewModel.frases
+
     var editando by remember { mutableStateOf(false) }
+    var eligiendoComuna by remember { mutableStateOf(false) }
     var confirmandoBorrado by remember { mutableStateOf(false) }
 
     // Copias editables. Parten del usuario actual y solo se escriben a la base
@@ -135,8 +151,8 @@ fun PerfilScreen(
                 // separarPor divide la lista en dos de una sola pasada, segun
                 // el criterio que le paso como lambda. Las frases cortas entran
                 // completas en la tarjeta de la grilla; las largas se recortan.
-                val (cortas, largas) = RepositorioFrases.guardadas
-                    .toList()
+                val (cortas, largas) = misFrases
+                    .map { it.texto }
                     .separarPor(criterioDeLargo(40))
 
                 FilaPerfil(
@@ -150,11 +166,41 @@ fun PerfilScreen(
             }
         }
 
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Las acciones van junto a los datos que modifican, no al final de la
+        // pantalla: quien quiere corregir su comuna la busca aqui mismo.
+        perfilViewModel.error?.let { textoError ->
+            MensajeEstado(texto = textoError, tipo = TipoMensaje.ERROR)
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        perfilViewModel.aviso?.let { textoAviso ->
+            MensajeEstado(texto = textoAviso, tipo = TipoMensaje.EXITO)
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        Button(
+            onClick = {
+                perfilViewModel.limpiarMensajes()
+                editando = true
+            },
+            enabled = !perfilViewModel.guardando,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+        ) {
+            Icon(imageVector = Icons.Filled.Edit, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Editar mis datos", style = MaterialTheme.typography.labelLarge)
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
         // Las frases propias, listadas completas. Aca si tiene sentido verlas:
         // son de ella y es donde puede revisar que guardo.
-        if (RepositorioFrases.guardadas.isNotEmpty()) {
+        if (misFrases.isNotEmpty()) {
             Text(
                 text = "Mis frases guardadas",
                 style = MaterialTheme.typography.titleMedium,
@@ -162,7 +208,7 @@ fun PerfilScreen(
             )
             Text(
                 // resumen() junta las dos primeras y cuenta el resto
-                text = RepositorioFrases.guardadas.toList().resumen(),
+                text = misFrases.map { it.texto }.resumen(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -176,12 +222,12 @@ fun PerfilScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    RepositorioFrases.guardadas.forEachIndexed { indice, frase ->
+                    misFrases.forEachIndexed { indice, frase ->
                         if (indice > 0) {
                             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                         }
                         Text(
-                            text = frase,
+                            text = frase.texto,
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }
@@ -300,36 +346,10 @@ fun PerfilScreen(
             detalle = "Datos de un familiar y condiciones de salud relevantes. En proceso."
         )
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        perfilViewModel.error?.let { textoError ->
-            MensajeEstado(texto = textoError, tipo = TipoMensaje.ERROR)
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        perfilViewModel.aviso?.let { textoAviso ->
-            MensajeEstado(texto = textoAviso, tipo = TipoMensaje.EXITO)
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        Button(
-            onClick = {
-                perfilViewModel.limpiarMensajes()
-                editando = true
-            },
-            enabled = !perfilViewModel.guardando,
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-        ) {
-            Icon(imageVector = Icons.Filled.Edit, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Editar mis datos", style = MaterialTheme.typography.labelLarge)
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
+        // Dar de baja la cuenta queda al final y separado de las demas
+        // acciones: es la unica que no tiene vuelta atras.
         OutlinedButton(
             onClick = {
                 perfilViewModel.limpiarMensajes()
@@ -358,7 +378,14 @@ fun PerfilScreen(
             onDismissRequest = { editando = false },
             title = { Text("Editar mis datos") },
             text = {
-                Column {
+                // El contenido va con scroll: nombre, comuna y tres
+                // preferencias no caben juntos en una pantalla de telefono, y
+                // sin esto los ultimos controles quedaban cortados abajo.
+                Column(
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .heightIn(max = 420.dp)
+                ) {
                     OutlinedTextField(
                         value = nombre,
                         onValueChange = { nombre = it },
@@ -370,24 +397,47 @@ fun PerfilScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    Text(
-                        text = "Comuna",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    // Abre el selector con buscador en vez de desplegar las
+                    // setenta comunas dentro de este dialogo.
+                    OutlinedTextField(
+                        value = comuna,
+                        onValueChange = { },
+                        readOnly = true,
+                        label = { Text("Comuna") },
+                        shape = RoundedCornerShape(12.dp),
+                        trailingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.ArrowDropDown,
+                                contentDescription = null
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // readOnly bloquea el teclado pero tambien los
+                            // toques, asi que el clickable va en una capa
+                            // aparte sobre el campo.
+                            .clickable { eligiendoComuna = true }
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
 
-                    // Lista corta de comunas; con pocas opciones un desplegable
-                    // esconde las alternativas sin necesidad.
-                    ValidadorFormularios.comunas.forEach { opcion ->
-                        FilaOpcionComuna(
-                            texto = opcion,
-                            seleccionada = comuna == opcion,
-                            alElegir = { comuna = opcion }
+                    // Deja visible a que region pertenece, para confirmar que
+                    // se eligio la correcta cuando hay nombres repetidos.
+                    ValidadorFormularios.regionDe(comuna)?.let { region ->
+                        Text(
+                            text = "Región: $region",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 4.dp, top = 4.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "Accesibilidad",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
 
                     FilaPreferenciaEditable(
                         texto = "Alertas visuales en pantalla",
@@ -432,6 +482,15 @@ fun PerfilScreen(
         )
     }
 
+    // SELECTOR DE COMUNA
+    if (eligiendoComuna) {
+        SelectorComuna(
+            comunaElegida = comuna,
+            alElegir = { comuna = it },
+            alCerrar = { eligiendoComuna = false }
+        )
+    }
+
     // DIALOGO DE ELIMINACION
     if (confirmandoBorrado) {
         AlertDialog(
@@ -464,26 +523,6 @@ fun PerfilScreen(
                 }
             }
         )
-    }
-}
-
-// Una comuna de la lista del dialogo de edicion
-@Composable
-private fun FilaOpcionComuna(
-    texto: String,
-    seleccionada: Boolean,
-    alElegir: () -> Unit
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { alElegir() }
-            .padding(vertical = 2.dp)
-    ) {
-        RadioButton(selected = seleccionada, onClick = alElegir)
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(text = texto, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
