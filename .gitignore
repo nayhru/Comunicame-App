@@ -14,3 +14,14 @@ build/
 .externalNativeBuild
 .cxx
 local.properties
+
+# Configuracion del proyecto de Firebase. Lleva las claves de la cuenta, asi
+# que no se versiona: quien clone el repositorio usa la suya.
+google-services.json
+app/google-services.json
+
+# Almacen de claves de firma del APK y sus contrasenas. Si el keystore se
+# filtra, cualquiera puede publicar actualizaciones falsas de la aplicacion.
+*.jks
+*.keystore
+keystore.properties
