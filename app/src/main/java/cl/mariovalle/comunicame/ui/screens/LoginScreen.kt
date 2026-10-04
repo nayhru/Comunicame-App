@@ -61,7 +61,7 @@ fun LoginScreen(
     onLoginExitoso: (Usuario) -> Unit,
     onIrARegistro: () -> Unit,
     onIrARecuperar: () -> Unit,
-    sesionViewModel: SesionViewModel = viewModel()
+    sesionViewModel: SesionViewModel = viewModel(factory = SesionViewModel.fabrica())
 ) {
     // Estado. remember guarda el valor entre recomposiciones y mutableStateOf
     // hace que Compose lo observe.

@@ -74,7 +74,7 @@ import cl.mariovalle.comunicame.util.limpio
 @Composable
 fun RegistroScreen(
     onRegistroExitoso: () -> Unit,
-    sesionViewModel: SesionViewModel = viewModel(),
+    sesionViewModel: SesionViewModel = viewModel(factory = SesionViewModel.fabrica()),
     onVolver: () -> Unit
 ) {
     // Estado del formulario

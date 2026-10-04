@@ -26,7 +26,9 @@ import cl.mariovalle.comunicame.ui.viewmodel.SesionViewModel
 // pantallas que lo necesitan. Si cada una creara el suyo, el registro no
 // dejaria la sesion iniciada para el panel.
 @Composable
-fun NavegacionApp(sesionViewModel: SesionViewModel = viewModel()) {
+fun NavegacionApp(
+    sesionViewModel: SesionViewModel = viewModel(factory = SesionViewModel.fabrica())
+) {
     val navController = rememberNavController()
 
     // Mientras se comprueba si habia una sesion guardada no se dibuja nada

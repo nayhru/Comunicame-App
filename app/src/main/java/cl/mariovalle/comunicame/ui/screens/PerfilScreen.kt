@@ -591,7 +591,7 @@ private fun FilaPlanificada(
 private fun PerfilScreenPreview() {
     ComunicameTheme {
         PerfilScreen(
-            sesionViewModel = viewModel(),
+            sesionViewModel = viewModel(factory = SesionViewModel.fabrica()),
             usuario = Usuario(
                 nombre = "Ana Torres",
                 usuario = "ana",

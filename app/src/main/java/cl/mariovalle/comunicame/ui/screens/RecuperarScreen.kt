@@ -63,7 +63,7 @@ import cl.mariovalle.comunicame.ui.viewmodel.SesionViewModel
 @Composable
 fun RecuperarScreen(
     onVolver: () -> Unit,
-    sesionViewModel: SesionViewModel = viewModel()
+    sesionViewModel: SesionViewModel = viewModel(factory = SesionViewModel.fabrica())
 ) {
     var correo by remember { mutableStateOf("") }
 

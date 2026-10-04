@@ -2,6 +2,8 @@ package cl.mariovalle.comunicame.ui.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -213,5 +215,32 @@ class SesionViewModel(
             usuario = conectado.usuario,
             correo = conectado.correo
         )
+    }
+
+    companion object {
+
+        // Fabrica propia.
+        //
+        // La fabrica por omision solo sabe construir un AndroidViewModel que
+        // reciba unicamente el Application. Este ademas recibe el repositorio,
+        // que es lo que permite pasarle un doble en las pruebas, asi que hay
+        // que decirle como armarlo.
+        fun fabrica(repositorio: RepositorioComunicame? = null): ViewModelProvider.Factory =
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(
+                    modelClass: Class<T>,
+                    extras: androidx.lifecycle.viewmodel.CreationExtras
+                ): T {
+                    val aplicacion = extras[
+                        ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY
+                    ] as Application
+
+                    return SesionViewModel(
+                        aplicacion,
+                        repositorio ?: proveedorDeRepositorio()
+                    ) as T
+                }
+            }
     }
 }
