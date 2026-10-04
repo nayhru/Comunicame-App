@@ -41,6 +41,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cl.mariovalle.comunicame.data.ContactoEmergencia
+import cl.mariovalle.comunicame.util.soloDigitos
+import cl.mariovalle.comunicame.util.telefonoLegible
 import cl.mariovalle.comunicame.data.Usuario
 import cl.mariovalle.comunicame.data.ServicioEmergencia
 import cl.mariovalle.comunicame.data.serviciosEmergencia
@@ -67,7 +70,7 @@ fun EmergenciaScreen(usuario: Usuario) {
     // tiene marcador y lanza ActivityNotFoundException. En una pantalla de
     // emergencia un cierre inesperado es lo peor que puede pasar.
     fun abrirMarcador(servicio: ServicioEmergencia) {
-        vibrar(context, PatronVibracion.TOQUE)
+        vibrar(context, PatronVibracion.TOQUE, forzar = true)
         try {
             // ACTION_DIAL abre el marcador con el numero cargado y NO requiere
             // el permiso CALL_PHONE: la llamada la confirma quien tenga el
@@ -80,10 +83,31 @@ fun EmergenciaScreen(usuario: Usuario) {
             // alguien lo marque desde otro aparato.
             avisoMarcador = "Este dispositivo no tiene marcador. " +
                 "Marca el ${servicio.numero} desde otro teléfono."
-            vibrar(context, PatronVibracion.ERROR)
+            vibrar(context, PatronVibracion.ERROR, forzar = true)
         } catch (e: SecurityException) {
             avisoMarcador = "El sistema bloqueó la apertura del marcador."
-            vibrar(context, PatronVibracion.ERROR)
+            vibrar(context, PatronVibracion.ERROR, forzar = true)
+        }
+    }
+
+    // Mismo camino que los servicios: ACTION_DIAL deja el numero cargado y
+    // la llamada la confirma quien tenga el telefono en la mano.
+    fun marcarContacto(contacto: ContactoEmergencia) {
+        vibrar(context, PatronVibracion.TOQUE, forzar = true)
+        try {
+            val intento = Intent(
+                Intent.ACTION_DIAL,
+                Uri.parse("tel:${contacto.numero.soloDigitos}")
+            )
+            context.startActivity(intento)
+            avisoMarcador = null
+        } catch (e: ActivityNotFoundException) {
+            avisoMarcador = "Este dispositivo no tiene marcador. " +
+                "Marca el ${contacto.numero.telefonoLegible()} desde otro teléfono."
+            vibrar(context, PatronVibracion.ERROR, forzar = true)
+        } catch (e: SecurityException) {
+            avisoMarcador = "El sistema bloqueó la apertura del marcador."
+            vibrar(context, PatronVibracion.ERROR, forzar = true)
         }
     }
 
@@ -253,36 +277,106 @@ fun EmergenciaScreen(usuario: Usuario) {
         Spacer(modifier = Modifier.height(20.dp))
 
         Text(
-            text = "Mis datos",
+            text = "Mi contacto de emergencia",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            // Quien toma el telefono ya tiene delante a la persona: lo que no
+            // tiene es a quien avisar.
+            text = "Avisa a esta persona si necesito ayuda.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            ),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                FilaDato("Nombre", usuario.nombre.ifBlank { "—" })
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                FilaDato("Comuna", usuario.comuna.ifBlank { "—" })
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                FilaDato("Se comunica por", usuario.preferencia.etiqueta)
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                FilaDato("Correo", usuario.correo.ifBlank { "—" })
+        val contacto = usuario.contactoEmergencia
+
+        if (!contacto.estaConfigurado) {
+            MensajeEstado(
+                texto = "Todavía no agregas un contacto de emergencia. " +
+                    "Configúralo desde Mi perfil.",
+                tipo = TipoMensaje.AVISO
+            )
+        } else {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(
+                        width = 2.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .clickable { marcarContacto(contacto) }
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = contacto.nombre,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = contacto.parentesco.etiqueta,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Filled.ContactPhone,
+                            // La interfaz Contactable arma la etiqueta: dice a
+                            // quien se llama antes del numero, que es lo que
+                            // importa escuchar primero en una urgencia.
+                            contentDescription = contacto.etiquetaAccesible(),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(34.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // El numero grande y legible: alguien puede necesitar
+                    // marcarlo desde otro telefono.
+                    Text(
+                        text = contacto.numero.telefonoLegible(),
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    if (contacto.correo.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = contacto.correo,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "Toca para llamar",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(20.dp))
 
         MensajeEstado(
-            texto = "Contacto de emergencia y ficha médica: esta funcionalidad está en " +
-                "proceso. Queda documentada para futuras entregas.",
+            texto = "Ficha médica: esta funcionalidad está en proceso. " +
+                "Queda documentada para futuras entregas.",
             tipo = TipoMensaje.INFO
         )
 

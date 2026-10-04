@@ -3,6 +3,7 @@ package cl.mariovalle.comunicame.data
 import cl.mariovalle.comunicame.util.LARGO_MINIMO_CONTRASENA
 import cl.mariovalle.comunicame.util.ResultadoValidacion
 import cl.mariovalle.comunicame.util.esCorreoValido
+import cl.mariovalle.comunicame.util.esTelefonoValido
 import cl.mariovalle.comunicame.util.esUsuarioValido
 import cl.mariovalle.comunicame.util.estaVacio
 import cl.mariovalle.comunicame.util.tieneLargoMinimo
@@ -172,6 +173,39 @@ object ValidadorFormularios {
                 }
             }
         )
+
+    // Valida el contacto de emergencia.
+    //
+    // El correo es opcional: lo esencial es el telefono, porque en una urgencia
+    // nadie va a escribir un correo. Si se escribe, se comprueba que tenga
+    // forma de correo.
+    fun validarContactoEmergencia(
+        nombre: String,
+        numero: String,
+        correo: String
+    ): ResultadoValidacion = ResultadoValidacion.primeraFalla(
+        {
+            ResultadoValidacion.exigir(!nombre.estaVacio) {
+                "Escribe el nombre de tu contacto"
+            }
+        },
+        {
+            ResultadoValidacion.exigir(!numero.estaVacio) {
+                "Escribe el teléfono de tu contacto"
+            }
+        },
+        {
+            ResultadoValidacion.exigir(numero.esTelefonoValido(), critico = true) {
+                "El teléfono debe tener 9 dígitos, por ejemplo 9 1234 5678"
+            }
+        },
+        {
+            // El correo solo se valida si lo escribieron
+            ResultadoValidacion.exigir(correo.estaVacio || correo.esCorreoValido()) {
+                "El correo no tiene un formato válido"
+            }
+        }
+    )
 
     // Las frases se muestran en tarjetas; mas largas que esto no se alcanzan a
     // leer de una pasada, que es para lo que sirven.

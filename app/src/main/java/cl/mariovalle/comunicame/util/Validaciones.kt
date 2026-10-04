@@ -83,3 +83,43 @@ fun String.fuerzaContrasena(): Int {
     )
     return reglas.count { regla -> regla(this) }
 }
+
+// Deja solo los digitos de un telefono escrito a mano.
+// "+56 9 1234 5678" -> "56912345678"
+val String.soloDigitos: String
+    get() = filter { it.isDigit() }
+
+// Valida un numero de telefono chileno.
+//
+// Se aceptan varias formas de escribirlo porque la gente los anota como se le
+// ocurre: con +56, sin el, con espacios o guiones. Lo que importa es que al
+// quitar todo lo que no sea digito quede un numero marcable:
+//
+//   9 digitos        -> movil o fijo con codigo de area (912345678)
+//   11 digitos con 56 -> el mismo numero con el codigo de pais
+//
+// En una pantalla de emergencia conviene ser permisivo al validar y estricto
+// al marcar: rechazar un numero valido por el formato es peor que aceptar uno
+// raro que el marcador despues resuelve.
+fun String.esTelefonoValido(): Boolean {
+    val digitos = soloDigitos
+    return when {
+        digitos.length == 9 -> true
+        digitos.length == 11 && digitos.startsWith("56") -> true
+        else -> false
+    }
+}
+
+// Formatea el numero para mostrarlo: "+56 9 1234 5678"
+fun String.telefonoLegible(): String {
+    val digitos = soloDigitos
+    val nacional = when {
+        digitos.length == 11 && digitos.startsWith("56") -> digitos.drop(2)
+        else -> digitos
+    }
+
+    if (nacional.length != 9) return this.limpio
+
+    // 9 1234 5678
+    return "+56 ${nacional.take(1)} ${nacional.drop(1).take(4)} ${nacional.drop(5)}"
+}

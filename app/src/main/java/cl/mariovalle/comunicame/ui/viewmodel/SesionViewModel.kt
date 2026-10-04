@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import cl.mariovalle.comunicame.data.RepositorioComunicame
 import cl.mariovalle.comunicame.data.ResultadoOperacion
+import cl.mariovalle.comunicame.data.PreferenciasAccesibilidad
 import cl.mariovalle.comunicame.data.SesionLocal
 import cl.mariovalle.comunicame.data.Usuario
 import cl.mariovalle.comunicame.data.ValidadorFormularios
@@ -29,6 +30,10 @@ class SesionViewModel(
 ) : AndroidViewModel(aplicacion) {
 
     private val sesionLocal = SesionLocal(aplicacion)
+
+    // Copia local de los ajustes de accesibilidad. Se consultan en cada
+    // vibracion, asi que no pueden depender de la red.
+    private val preferenciasAccesibilidad = PreferenciasAccesibilidad(aplicacion)
 
     // Usuario con la sesion iniciada, o null si no hay ninguna.
     var usuario by mutableStateOf<Usuario?>(null)
@@ -69,7 +74,10 @@ class SesionViewModel(
 
         viewModelScope.launch {
             when (val resultado = repositorio.obtenerUsuario(uidGuardado)) {
-                is ResultadoOperacion.Exito -> usuario = resultado.dato
+                is ResultadoOperacion.Exito -> {
+                    usuario = resultado.dato
+                    preferenciasAccesibilidad.sincronizarDesde(resultado.dato)
+                }
                 is ResultadoOperacion.Error -> {
                     // La sesion guardada ya no sirve: la cuenta pudo borrarse
                     // desde otro dispositivo. Se limpia para no dejar al
@@ -192,11 +200,17 @@ class SesionViewModel(
     fun refrescarUsuario(actualizado: Usuario) {
         usuario = actualizado
         sesionLocal.actualizarNombreUsuario(actualizado.usuario)
+        // Los ajustes recien editados tienen que valer de inmediato, sin
+        // esperar al proximo inicio de sesion.
+        preferenciasAccesibilidad.sincronizarDesde(actualizado)
     }
 
     fun cerrarSesion(alSalir: () -> Unit = {}) {
         repositorio.cerrarSesion()
         sesionLocal.cerrar()
+        // Los ajustes son de la cuenta, no del telefono: si entra otra
+        // persona no deberia heredar los de quien uso la aplicacion antes.
+        preferenciasAccesibilidad.limpiar()
         usuario = null
         error = null
         aviso = null
@@ -210,6 +224,7 @@ class SesionViewModel(
 
     private fun guardarSesion(conectado: Usuario) {
         usuario = conectado
+        preferenciasAccesibilidad.sincronizarDesde(conectado)
         sesionLocal.guardar(
             uid = conectado.uid,
             usuario = conectado.usuario,

@@ -1,6 +1,7 @@
 package cl.mariovalle.comunicame.ui.components
 
 import android.content.Context
+import cl.mariovalle.comunicame.data.PreferenciasAccesibilidad
 import android.media.AudioAttributes
 import android.os.Build
 import android.os.VibrationEffect
@@ -27,7 +28,18 @@ private val atributosAccesibilidad = AudioAttributes.Builder()
 // La API de vibracion cambio dos veces desde minSdk 24, de ahi las ramas.
 // Si el equipo no tiene vibrador no hace nada, por eso el aviso visual nunca
 // puede depender de esto.
-fun vibrar(context: Context, patron: PatronVibracion) {
+//
+// Respeta el ajuste de vibracion del perfil. La comprobacion va aqui dentro y
+// no en cada una de las diecinueve llamadas repartidas por la aplicacion:
+// asi no hay forma de olvidarla al agregar una nueva.
+//
+// La excepcion es emergencia, que pasa forzar = true. Quien apago la vibracion
+// lo hizo pensando en los avisos de todos los dias, no en el momento en que
+// esta pidiendo ayuda; ahi el pulso es la unica confirmacion de que el toque
+// se registro.
+fun vibrar(context: Context, patron: PatronVibracion, forzar: Boolean = false) {
+
+    if (!forzar && !PreferenciasAccesibilidad(context).vibracion) return
 
     val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager

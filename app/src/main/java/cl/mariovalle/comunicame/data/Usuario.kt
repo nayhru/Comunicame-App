@@ -34,7 +34,11 @@ data class Usuario(
     val preferencia: PreferenciaComunicacion = PreferenciaComunicacion.TEXTO_ESCRITO,
     val alertasVisuales: Boolean = true,
     val vibracion: Boolean = true,
-    val subtitulos: Boolean = true
+    val subtitulos: Boolean = true,
+    // A quien avisar en una emergencia. Va dentro del documento del usuario y
+    // no en una coleccion aparte porque es uno solo y se necesita junto con el
+    // resto del perfil: una consulta menos en el momento en que mas urge.
+    val contactoEmergencia: ContactoEmergencia = ContactoEmergencia()
 ) {
 
     // Convierte el usuario al mapa que entiende Firestore.
@@ -51,7 +55,8 @@ data class Usuario(
         CAMPO_PREFERENCIA to preferencia.name,
         CAMPO_ALERTAS to alertasVisuales,
         CAMPO_VIBRACION to vibracion,
-        CAMPO_SUBTITULOS to subtitulos
+        CAMPO_SUBTITULOS to subtitulos,
+        CAMPO_CONTACTO to contactoEmergencia.aMapa()
     )
 
     companion object {
@@ -63,6 +68,7 @@ data class Usuario(
         const val CAMPO_ALERTAS = "alertasVisuales"
         const val CAMPO_VIBRACION = "vibracion"
         const val CAMPO_SUBTITULOS = "subtitulos"
+        const val CAMPO_CONTACTO = "contactoEmergencia"
 
         // Reconstruye el usuario a partir de lo que vino de Firestore.
         //
@@ -81,7 +87,18 @@ data class Usuario(
             ),
             alertasVisuales = datos[CAMPO_ALERTAS] as? Boolean ?: true,
             vibracion = datos[CAMPO_VIBRACION] as? Boolean ?: true,
-            subtitulos = datos[CAMPO_SUBTITULOS] as? Boolean ?: true
+            subtitulos = datos[CAMPO_SUBTITULOS] as? Boolean ?: true,
+            // Firestore devuelve los mapas anidados como Map<String, Any?>.
+            // Si falta, queda un contacto vacio y la pantalla ofrece crearlo.
+            contactoEmergencia = (datos[CAMPO_CONTACTO] as? Map<*, *>)
+                ?.let { mapa ->
+                    ContactoEmergencia.desdeMapa(
+                        mapa.entries.associate { (clave, valor) ->
+                            clave.toString() to valor
+                        }
+                    )
+                }
+                ?: ContactoEmergencia()
         )
     }
 }

@@ -37,6 +37,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.filled.ArrowDropDown
 import cl.mariovalle.comunicame.ui.components.CampoComuna
 import cl.mariovalle.comunicame.ui.components.SelectorComuna
+import androidx.compose.material.icons.filled.ContactPhone
+import androidx.compose.material.icons.filled.MedicalInformation
+import cl.mariovalle.comunicame.ui.components.DialogoContactoEmergencia
+import cl.mariovalle.comunicame.util.telefonoLegible
 import cl.mariovalle.comunicame.data.RepositorioFrases
 import cl.mariovalle.comunicame.data.Usuario
 import cl.mariovalle.comunicame.ui.theme.ComunicameTheme
@@ -86,6 +90,7 @@ fun PerfilScreen(
     var editando by remember { mutableStateOf(false) }
     var eligiendoComuna by remember { mutableStateOf(false) }
     var confirmandoBorrado by remember { mutableStateOf(false) }
+    var editandoContacto by remember { mutableStateOf(false) }
 
     // Copias editables. Parten del usuario actual y solo se escriben a la base
     // cuando la persona confirma.
@@ -316,6 +321,75 @@ fun PerfilScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // CONTACTO DE EMERGENCIA
+        Text(
+            text = "Contacto de emergencia",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = "A quién avisar si necesitas ayuda. Aparece en la pantalla " +
+                "de emergencia.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        val contacto = usuario.contactoEmergencia
+
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            ),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                if (contacto.estaConfigurado) {
+                    FilaPerfil("Nombre", contacto.nombre)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    FilaPerfil("Teléfono", contacto.numero.telefonoLegible())
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    FilaPerfil("Parentesco", contacto.parentesco.etiqueta)
+                    if (contacto.correo.isNotBlank()) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        FilaPerfil("Correo", contacto.correo)
+                    }
+                } else {
+                    Text(
+                        text = "Todavía no agregas un contacto de emergencia.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        OutlinedButton(
+            onClick = {
+                perfilViewModel.limpiarMensajes()
+                editandoContacto = true
+            },
+            enabled = !perfilViewModel.guardando,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+        ) {
+            Icon(imageVector = Icons.Filled.ContactPhone, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                if (contacto.estaConfigurado) "Cambiar mi contacto"
+                else "Agregar contacto de emergencia",
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         Text(
             text = "Funcionalidades en proceso",
             style = MaterialTheme.typography.titleMedium,
@@ -337,14 +411,14 @@ fun PerfilScreen(
         Spacer(modifier = Modifier.height(8.dp))
         FilaPlanificada(
             icono = Icons.Filled.Settings,
-            titulo = "Ajustes de accesibilidad editables",
-            detalle = "Cambiar tamaño de texto, contraste e intensidad de la vibración. En proceso."
+            titulo = "Tamaño de texto y contraste",
+            detalle = "Ajustar la tipografía y el contraste de la aplicación. En proceso."
         )
         Spacer(modifier = Modifier.height(8.dp))
         FilaPlanificada(
-            icono = Icons.Filled.AccountCircle,
-            titulo = "Contacto de emergencia y ficha médica",
-            detalle = "Datos de un familiar y condiciones de salud relevantes. En proceso."
+            icono = Icons.Filled.MedicalInformation,
+            titulo = "Ficha médica",
+            detalle = "Condiciones de salud y medicamentos relevantes en una urgencia. En proceso."
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -455,6 +529,23 @@ fun PerfilScreen(
             dismissButton = {
                 TextButton(onClick = { editando = false }) { Text("Cancelar") }
             }
+        )
+    }
+
+    // CONTACTO DE EMERGENCIA
+    if (editandoContacto) {
+        DialogoContactoEmergencia(
+            contacto = usuario.contactoEmergencia,
+            guardando = perfilViewModel.guardando,
+            alGuardar = { contactoNuevo ->
+                perfilViewModel.actualizar(
+                    usuario.copy(contactoEmergencia = contactoNuevo)
+                ) { guardado ->
+                    sesionViewModel.refrescarUsuario(guardado)
+                    editandoContacto = false
+                }
+            },
+            alCerrar = { editandoContacto = false }
         )
     }
 
