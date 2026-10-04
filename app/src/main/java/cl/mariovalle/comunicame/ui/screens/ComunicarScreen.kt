@@ -108,8 +108,18 @@ fun ComunicarScreen(
     // Los mensajes del ViewModel se muestran en el mismo banner que el resto
     // de la pantalla, para que el usuario tenga un solo lugar donde mirar.
     LaunchedEffect(frasesViewModel.error, frasesViewModel.aviso) {
-        frasesViewModel.error?.let { mensaje = it to TipoMensaje.ERROR }
-        frasesViewModel.aviso?.let { mensaje = it to TipoMensaje.EXITO }
+        val error = frasesViewModel.error
+        val aviso = frasesViewModel.aviso
+
+        mensaje = when {
+            error != null -> error to TipoMensaje.ERROR
+            aviso != null -> aviso to TipoMensaje.EXITO
+            // Cuando el ViewModel retira su aviso, el banner tiene que irse
+            // con el. Si solo se copiara el valor cuando existe, la
+            // confirmacion quedaria fija en pantalla despues de que el
+            // ViewModel ya la dio por terminada.
+            else -> null
+        }
     }
 
     var fraseNueva by remember { mutableStateOf("") }

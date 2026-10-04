@@ -10,6 +10,8 @@ import cl.mariovalle.comunicame.data.RepositorioComunicame
 import cl.mariovalle.comunicame.data.ResultadoOperacion
 import cl.mariovalle.comunicame.data.ValidadorFormularios
 import cl.mariovalle.comunicame.data.proveedorDeRepositorio
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // Las frases guardadas del usuario: listar, agregar, editar y eliminar.
@@ -33,6 +35,9 @@ class FrasesViewModel(
 
     var aviso by mutableStateOf<String?>(null)
         private set
+
+    // Igual que en el perfil: el aviso de exito se retira solo, el error no.
+    private var borradoDelAviso: Job? = null
 
     // uid del usuario cuyas frases se estan mostrando. Se guarda para poder
     // recargar tras cada operacion sin que la pantalla lo repita.
@@ -80,7 +85,7 @@ class FrasesViewModel(
                     // Se agrega al principio sin volver a consultar: la lista
                     // va ordenada por fecha y esta es la mas reciente.
                     frases = listOf(resultado.dato) + frases
-                    aviso = "Frase guardada"
+                    mostrarAviso("Frase guardada")
                     alGuardar()
                 }
                 is ResultadoOperacion.Error -> error = resultado.mensaje
@@ -108,7 +113,7 @@ class FrasesViewModel(
                     frases = frases.map { si ->
                         if (si.id == fraseId) resultado.dato else si
                     }
-                    aviso = "Frase actualizada"
+                    mostrarAviso("Frase actualizada")
                     alEditar()
                 }
                 is ResultadoOperacion.Error -> error = resultado.mensaje
@@ -128,7 +133,7 @@ class FrasesViewModel(
             when (val resultado = repositorio.eliminarFrase(uidActual, fraseId)) {
                 is ResultadoOperacion.Exito -> {
                     frases = frases.filterNot { it.id == fraseId }
-                    aviso = "Frase eliminada"
+                    mostrarAviso("Frase eliminada")
                 }
                 is ResultadoOperacion.Error -> error = resultado.mensaje
             }
@@ -138,7 +143,24 @@ class FrasesViewModel(
     }
 
     fun limpiarMensajes() {
+        borradoDelAviso?.cancel()
         error = null
         aviso = null
+    }
+
+    // Muestra la confirmacion y la retira sola. Dejarla fija haria que, al
+    // rato, no se supiera si corresponde a la ultima accion o a una anterior.
+    private fun mostrarAviso(texto: String) {
+        borradoDelAviso?.cancel()
+        aviso = texto
+
+        borradoDelAviso = viewModelScope.launch {
+            delay(DURACION_AVISO_MS)
+            aviso = null
+        }
+    }
+
+    companion object {
+        private const val DURACION_AVISO_MS = 5_000L
     }
 }

@@ -84,6 +84,9 @@ fun PerfilScreen(
     // nunca habia guardado.
     LaunchedEffect(usuario.uid) {
         frasesViewModel.cargar(usuario.uid)
+        // Al volver a entrar a la pantalla no debe quedar la confirmacion de
+        // un cambio anterior: ya se vio cuando correspondia.
+        perfilViewModel.limpiarMensajes()
     }
     val misFrases = frasesViewModel.frases
 
