@@ -121,8 +121,9 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // TODO: por ahora es un icono de stock de Material, despues le hago uno
-        // propio bonito con la identidad de la app
+        // Icono de la biblioteca de Material. Un icono propio con la identidad
+        // de la aplicacion queda para una etapa posterior: no cambia lo que la
+        // pantalla hace y el presupuesto de esta entrega estaba en el back end.
         Icon(
             imageVector = Icons.Filled.RecordVoiceOver,
             contentDescription = null, // decorativo, el titulo de abajo ya lo dice

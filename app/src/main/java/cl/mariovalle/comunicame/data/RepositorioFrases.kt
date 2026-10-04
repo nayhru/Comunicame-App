@@ -1,6 +1,5 @@
 package cl.mariovalle.comunicame.data
 
-import androidx.compose.runtime.mutableStateListOf
 import cl.mariovalle.comunicame.util.equivaleA
 import cl.mariovalle.comunicame.util.estaVacio
 import cl.mariovalle.comunicame.util.indiceDelPrimero
@@ -20,10 +19,14 @@ data class Frase(
     val categoria: CategoriaFrase
 )
 
-// Frases del panel de comunicacion.
+// Catalogo de frases sugeridas que trae la aplicacion.
 //
-// Las sugeridas son fijas y vienen categorizadas. Las guardadas las crea la
-// usuaria. Todo vive en memoria: esta entrega no persiste nada.
+// Son fijas y vienen categorizadas, asi que viven en el codigo y no necesitan
+// base de datos: son las mismas para todo el mundo.
+//
+// Las frases propias de cada persona ya no estan aqui. Desde esta entrega se
+// guardan en Firestore bajo su cuenta, porque son suyas y tienen que seguir
+// disponibles al cambiar de dispositivo.
 object RepositorioFrases {
 
     // by lazy: el catalogo no se arma hasta la primera vez que alguien lo pide.
@@ -55,12 +58,6 @@ object RepositorioFrases {
         sugeridas.map { it.texto.lowercase() }.toSet()
     }
 
-    // Las que crea la usuaria
-    val guardadas = mutableStateListOf(
-        "Vengo a retirar un pedido en caja",
-        "Mi cita médica es a las tres"
-    )
-
     // Devuelve solo los textos de las sugeridas, para la grilla
     fun textosSugeridos(): List<String> = sugeridas.map { it.texto }
 
@@ -73,40 +70,23 @@ object RepositorioFrases {
     // se alcanza a leer de una pasada en el telefono.
     const val MAXIMO_RESULTADOS = 12
 
-    // Busca en sugeridas y guardadas a la vez.
+    // Busca dentro del catalogo de sugeridas.
     //
-    // filter + sortedBy + map encadenados: filtro las que contienen el texto,
-    // las ordeno por largo (las cortas primero, son las mas usadas) y devuelvo
-    // solo el texto. primerosQueCumplan corta apenas junta los que necesita,
-    // en vez de recorrer todo y descartar despues.
+    // sortedBy + primerosQueCumplan + map encadenados: ordeno por largo (las
+    // cortas primero, son las mas usadas), corto apenas junto los que
+    // necesito en vez de recorrer todo y descartar despues, y devuelvo solo
+    // el texto.
+    //
+    // Las frases propias no se incluyen aqui porque dependen de quien tenga
+    // la sesion abierta y las entrega el repositorio de datos.
     fun buscar(termino: String): List<String> {
         if (termino.estaVacio) return emptyList()
         val t = termino.limpio.lowercase()
 
-        return (textosSugeridos() + guardadas)
+        return textosSugeridos()
             .sortedBy { it.length }
             .primerosQueCumplan(MAXIMO_RESULTADOS) { it.lowercase().contains(t) }
             .map { it.limpio }
-    }
-
-    // Posicion de una frase en las guardadas, o -1 si no esta.
-    // La usa la pantalla para saber si una frase ya fue guardada.
-    fun posicionEnGuardadas(frase: String): Int =
-        guardadas.toList().indiceDelPrimero { it.equivaleA(frase) }
-
-    // false si venia vacia o ya existia en cualquiera de las dos listas
-    fun guardar(frase: String): Boolean {
-        val limpia = frase.limpio
-        if (limpia.estaVacio) return false
-        if (limpia.lowercase() in textosSugeridos) return false
-        if (guardadas.any { it.equivaleA(limpia) }) return false
-        guardadas.add(limpia)
-        return true
-    }
-
-    // Borra una frase de la usuaria
-    fun eliminar(frase: String) {
-        guardadas.remove(frase)
     }
 
     // Estadistica para Mi perfil: cuantas frases hay por categoria.
