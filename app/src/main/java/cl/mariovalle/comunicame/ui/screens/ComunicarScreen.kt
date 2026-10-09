@@ -61,7 +61,21 @@ import cl.mariovalle.comunicame.data.RepositorioFrases
 import cl.mariovalle.comunicame.ui.viewmodel.FrasesViewModel
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.content.ActivityNotFoundException
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.Hearing
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.heightIn
 import cl.mariovalle.comunicame.ui.components.MensajeEstado
+import cl.mariovalle.comunicame.ui.components.ResultadoEscucha
+import cl.mariovalle.comunicame.ui.components.hayReconocedorDeVoz
+import cl.mariovalle.comunicame.ui.components.intentDeEscucha
+import cl.mariovalle.comunicame.ui.components.interpretarEscucha
+import cl.mariovalle.comunicame.ui.components.mensajeDeFallo
+import cl.mariovalle.comunicame.ui.components.tienePermisoDeMicrofono
 import cl.mariovalle.comunicame.ui.components.PatronVibracion
 import cl.mariovalle.comunicame.ui.components.TipoMensaje
 import cl.mariovalle.comunicame.ui.components.vibrar
@@ -78,8 +92,10 @@ private enum class ModoComunicacion(val etiqueta: String) {
 }
 
 // COMUNICAR. Es el corazon de la app.
-// Texto a voz esta listo. Voz a texto queda visible pero avisando que esta en
-// proceso, asi el usuario no supone que existe y le falla.
+//
+// Los dos sentidos de la conversacion estan cubiertos. Texto a voz: la persona
+// escribe y el telefono lo dice. Voz a texto: la otra persona habla y su voz
+// aparece escrita en la pantalla.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComunicarScreen(
@@ -104,6 +120,82 @@ fun ComunicarScreen(
     var categoria by remember { mutableStateOf<CategoriaFrase?>(null) }
     var mensaje by remember { mutableStateOf<Pair<String, TipoMensaje>?>(null) }
     var dialogoAbierto by remember { mutableStateOf(false) }
+
+    // VOZ A TEXTO
+    var escuchando by remember { mutableStateOf(false) }
+    var loQueDijo by remember { mutableStateOf("") }
+    var tutorialAbierto by remember { mutableStateOf(false) }
+
+    // El reconocedor puede no estar instalado: en ese caso conviene decirlo
+    // antes de ofrecer un boton que no va a funcionar.
+    val hayReconocedor = remember { hayReconocedorDeVoz(context) }
+
+    // Recibe el resultado del dialogo de voz del sistema.
+    //
+    // interpretarEscucha envuelve la lectura en try/catch/finally: los datos
+    // vienen de otra aplicacion y el finally garantiza que el estado de
+    // escucha se apague aunque algo falle, para que el boton no quede
+    // bloqueado en medio de una conversacion.
+    val lanzadorDeEscucha = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { resultado ->
+        when (val escuchado = interpretarEscucha(
+            codigoResultado = resultado.resultCode,
+            datos = resultado.data,
+            alTerminar = { escuchando = false }
+        )) {
+            is ResultadoEscucha.Entendido -> {
+                loQueDijo = escuchado.texto
+                mensaje = null
+                vibrar(context, PatronVibracion.EXITO)
+            }
+            is ResultadoEscucha.Fallo -> {
+                mensaje = escuchado.mensaje to TipoMensaje.AVISO
+                vibrar(context, PatronVibracion.ERROR)
+            }
+            // Cancelar es una decision de la persona, no un error que avisar.
+            ResultadoEscucha.Cancelado -> Unit
+        }
+    }
+
+    // Abre el dialogo de voz del sistema.
+    fun escuchar() {
+        mensaje = null
+        try {
+            escuchando = true
+            lanzadorDeEscucha.launch(intentDeEscucha())
+        } catch (e: ActivityNotFoundException) {
+            escuchando = false
+            mensaje = mensajeDeFallo(e) to TipoMensaje.ERROR
+            vibrar(context, PatronVibracion.ERROR)
+        } catch (e: SecurityException) {
+            escuchando = false
+            mensaje = mensajeDeFallo(e) to TipoMensaje.ERROR
+            vibrar(context, PatronVibracion.ERROR)
+        }
+    }
+
+    // El permiso se pide en el momento de usar la funcion y no al abrir la
+    // aplicacion: asi el sistema lo muestra cuando se entiende para que sirve.
+    val pedirMicrofono = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { concedido ->
+        if (concedido) {
+            escuchar()
+        } else {
+            mensaje = ("Sin acceso al micrófono no se puede escuchar. " +
+                "Puedes activarlo desde los ajustes del teléfono.") to TipoMensaje.AVISO
+            vibrar(context, PatronVibracion.ERROR)
+        }
+    }
+
+    fun iniciarEscucha() {
+        if (tienePermisoDeMicrofono(context)) {
+            escuchar()
+        } else {
+            pedirMicrofono.launch(android.Manifest.permission.RECORD_AUDIO)
+        }
+    }
 
     // Los mensajes del ViewModel se muestran en el mismo banner que el resto
     // de la pantalla, para que el usuario tenga un solo lugar donde mirar.
@@ -466,19 +558,180 @@ fun ComunicarScreen(
             }
 
             ModoComunicacion.VOZ_A_TEXTO -> {
-                SeccionPlanificada(
-                    icono = Icons.Filled.Mic,
-                    titulo = "Voz a texto",
-                    descripcion = "Permitirá que la persona con la que hablas use el micrófono " +
-                        "y su voz aparezca escrita en tu pantalla, completando la conversación " +
-                        "en los dos sentidos.",
-                    entrega = "Esta funcionalidad está en proceso. Queda documentada para " +
-                        "futuras entregas."
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Muéstrale el teléfono a quien te habla y toca Escuchar.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = { tutorialAbierto = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.HelpOutline,
+                            contentDescription = "Cómo usar voz a texto",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (!hayReconocedor) {
+                    // Se avisa antes de ofrecer un boton que no va a funcionar.
+                    MensajeEstado(
+                        texto = "Este dispositivo no tiene instalado el reconocimiento de voz " +
+                            "de Google, así que esta función no está disponible aquí.",
+                        tipo = TipoMensaje.AVISO
+                    )
+                } else {
+                    Button(
+                        onClick = { iniciarEscucha() },
+                        enabled = !escuchando,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // Alto generoso: se toca mientras se sostiene el
+                            // telefono en alto frente a otra persona.
+                            .height(96.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Mic,
+                            contentDescription = null,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = if (escuchando) "Escuchando..." else "ESCUCHAR",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Text(
+                    text = "Lo que dijo",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
                 )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // El texto reconocido queda editable: el reconocedor se
+                // equivoca con los nombres propios y con los numeros, y
+                // corregir una palabra es mas rapido que repetir la frase.
+                OutlinedTextField(
+                    value = loQueDijo,
+                    onValueChange = { loQueDijo = it },
+                    placeholder = {
+                        Text("Aquí aparecerá escrito lo que diga la otra persona")
+                    },
+                    shape = formaCampo,
+                    colors = coloresCampo,
+                    minLines = 4,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            // Pasa lo escuchado al campo de respuesta, para
+                            // contestar sin tener que volver a escribirlo.
+                            modo = ModoComunicacion.TEXTO_A_VOZ
+                            mensaje = "Ahora escribe tu respuesta" to TipoMensaje.INFO
+                            vibrar(context, PatronVibracion.TOQUE)
+                        },
+                        enabled = loQueDijo.isNotBlank(),
+                        shape = formaCampo,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Responder")
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            loQueDijo = ""
+                            mensaje = null
+                            vibrar(context, PatronVibracion.TOQUE)
+                        },
+                        enabled = loQueDijo.isNotBlank(),
+                        shape = formaCampo,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Limpiar")
+                    }
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+
+    // TUTORIAL de voz a texto.
+    //
+    // Los requerimientos piden un area de ayuda. Se resuelve aqui, junto a la
+    // funcion que explica, y no en una pantalla aparte: quien no entiende como
+    // usarla la busca en el momento, no en otro menu.
+    if (tutorialAbierto) {
+        AlertDialog(
+            onDismissRequest = { tutorialAbierto = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.Hearing,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
+            title = { Text("Cómo usar Voz a texto") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .heightIn(max = 420.dp)
+                ) {
+                    PasoTutorial(
+                        numero = "1",
+                        texto = "Toca el botón ESCUCHAR y muéstrale la pantalla a la " +
+                            "persona con la que quieres hablar."
+                    )
+                    PasoTutorial(
+                        numero = "2",
+                        texto = "La primera vez, el teléfono pedirá permiso para usar el " +
+                            "micrófono. Toca Permitir: sin eso no puede oír a la otra persona."
+                    )
+                    PasoTutorial(
+                        numero = "3",
+                        texto = "Se abrirá el cuadro de voz de Google. Pídele que hable " +
+                            "cerca del teléfono, en frases cortas."
+                    )
+                    PasoTutorial(
+                        numero = "4",
+                        texto = "Lo que diga aparecerá escrito en tu pantalla. Puedes " +
+                            "corregir cualquier palabra tocando el texto."
+                    )
+                    PasoTutorial(
+                        numero = "5",
+                        texto = "Toca Responder para pasar a Texto a voz y contestar."
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    MensajeEstado(
+                        texto = "Si dijiste que no al permiso y te arrepentiste, puedes " +
+                            "activarlo en Ajustes del teléfono, Aplicaciones, Comunícame, " +
+                            "Permisos, Micrófono.",
+                        tipo = TipoMensaje.INFO
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { tutorialAbierto = false }) { Text("Entendido") }
+            }
+        )
     }
 
     // Dialogo para guardar una frase nueva
@@ -693,4 +946,29 @@ private fun SeccionPlanificada(
 @Composable
 private fun ComunicarScreenPreview() {
     ComunicameTheme { ComunicarScreen(uid = "vista-previa") }
+}
+
+
+// Un paso numerado del tutorial
+@Composable
+private fun PasoTutorial(numero: String, texto: String) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+    ) {
+        Text(
+            text = numero,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.width(26.dp)
+        )
+        Text(
+            text = texto,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+    }
 }

@@ -9,11 +9,24 @@
          segun las restricciones de la entrega. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Microfono: lo usa la funcion de voz a texto, con la que la persona
+         oyente habla y su voz aparece escrita en la pantalla. Se solicita en
+         el momento de usarla y no al abrir la aplicacion, para que quede
+         claro para que sirve. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
     <!-- Consulta al motor de sintesis de voz (Text To Speech) del dispositivo,
          requerida desde Android 11 por la visibilidad de paquetes. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+
+        <!-- Consulta al reconocedor de voz del sistema. Sin esta declaracion,
+             desde Android 11 la aplicacion no puede comprobar si existe y la
+             funcion de voz a texto fallaria sin poder avisar por que. -->
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
 
