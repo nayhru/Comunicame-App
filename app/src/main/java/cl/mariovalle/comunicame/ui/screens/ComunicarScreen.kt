@@ -69,6 +69,7 @@ import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import cl.mariovalle.comunicame.ui.components.MensajeEstado
 import cl.mariovalle.comunicame.ui.components.ResultadoEscucha
 import cl.mariovalle.comunicame.ui.components.hayReconocedorDeVoz
@@ -612,9 +613,15 @@ fun ComunicarScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Text(
-                    text = "Lo que dijo",
+                    text = "Lo que te dijeron",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Este texto es para que tú lo leas. El teléfono no lo dice en " +
+                        "voz alta.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -622,48 +629,75 @@ fun ComunicarScreen(
                 // El texto reconocido queda editable: el reconocedor se
                 // equivoca con los nombres propios y con los numeros, y
                 // corregir una palabra es mas rapido que repetir la frase.
+                // Fondo distinto al del campo de "Tu mensaje": a simple vista
+                // debe quedar claro que este texto es de la otra persona y
+                // que no es lo que el telefono va a decir.
                 OutlinedTextField(
                     value = loQueDijo,
                     onValueChange = { loQueDijo = it },
                     placeholder = {
                         Text("Aquí aparecerá escrito lo que diga la otra persona")
                     },
+                    label = { Text("Dicho por la otra persona") },
                     shape = formaCampo,
-                    colors = coloresCampo,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.secondary,
+                        focusedLabelColor = MaterialTheme.colorScheme.secondary,
+                        cursorColor = MaterialTheme.colorScheme.secondary,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
                     minLines = 4,
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                Text(
+                    text = "Puedes corregir cualquier palabra tocando el texto.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                )
+
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(
-                        onClick = {
-                            // Pasa lo escuchado al campo de respuesta, para
-                            // contestar sin tener que volver a escribirlo.
-                            modo = ModoComunicacion.TEXTO_A_VOZ
-                            mensaje = "Ahora escribe tu respuesta" to TipoMensaje.INFO
-                            vibrar(context, PatronVibracion.TOQUE)
-                        },
-                        enabled = loQueDijo.isNotBlank(),
-                        shape = formaCampo,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Responder")
-                    }
+                Spacer(modifier = Modifier.height(16.dp))
 
-                    OutlinedButton(
-                        onClick = {
-                            loQueDijo = ""
-                            mensaje = null
-                            vibrar(context, PatronVibracion.TOQUE)
-                        },
-                        enabled = loQueDijo.isNotBlank(),
-                        shape = formaCampo,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Limpiar")
-                    }
+                // El nombre dice a donde lleva y no que hace con el texto de
+                // arriba: la version anterior decia solo "Responder", debajo
+                // del campo con lo que dijo la otra persona, y se entendia
+                // que iba a reproducir ese texto en voz alta.
+                OutlinedButton(
+                    onClick = {
+                        modo = ModoComunicacion.TEXTO_A_VOZ
+                        mensaje = ("Escribe tu respuesta y toca Reproducir en voz alta") to
+                            TipoMensaje.INFO
+                        vibrar(context, PatronVibracion.TOQUE)
+                    },
+                    shape = formaCampo,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.RecordVoiceOver,
+                        contentDescription = null
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Ir a Texto a voz para contestar")
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                TextButton(
+                    onClick = {
+                        loQueDijo = ""
+                        mensaje = null
+                        vibrar(context, PatronVibracion.TOQUE)
+                    },
+                    enabled = loQueDijo.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Borrar lo escuchado")
                 }
             }
         }
