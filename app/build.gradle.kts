@@ -39,8 +39,10 @@ android {
         applicationId = "cl.mariovalle.comunicame"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        // Sube con cada version distribuida. Android rechaza instalar una
+        // actualizacion cuyo versionCode no sea mayor que el instalado.
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
