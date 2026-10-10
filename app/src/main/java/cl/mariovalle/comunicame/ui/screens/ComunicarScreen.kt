@@ -53,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import cl.mariovalle.comunicame.data.CategoriaFrase
@@ -115,6 +116,10 @@ fun ComunicarScreen(
 
     val context = LocalContext.current
 
+    // Para ocultar el teclado al reproducir: si queda abierto tapa el aviso
+    // de resultado, que es el unico canal por el que esta persona se entera.
+    val controladorDeTeclado = LocalSoftwareKeyboardController.current
+
     var modo by remember { mutableStateOf(ModoComunicacion.TEXTO_A_VOZ) }
     var texto by remember { mutableStateOf("") }
     var busqueda by remember { mutableStateOf("") }
@@ -162,17 +167,23 @@ fun ComunicarScreen(
     // Abre el dialogo de voz del sistema.
     fun escuchar() {
         mensaje = null
+        var abrio = false
         try {
             escuchando = true
             lanzadorDeEscucha.launch(intentDeEscucha())
+            abrio = true
         } catch (e: ActivityNotFoundException) {
-            escuchando = false
             mensaje = mensajeDeFallo(e) to TipoMensaje.ERROR
             vibrar(context, PatronVibracion.ERROR)
         } catch (e: SecurityException) {
-            escuchando = false
             mensaje = mensajeDeFallo(e) to TipoMensaje.ERROR
             vibrar(context, PatronVibracion.ERROR)
+        } finally {
+            // Si el dialogo no llego a abrirse hay que apagar la escucha aqui,
+            // porque entonces no va a llegar ningun resultado que la apague.
+            // Antes esta linea estaba repetida en cada catch, y bastaba con
+            // agregar un tipo de excepcion mas para olvidarla.
+            if (!abrio) escuchando = false
         }
     }
 
@@ -293,6 +304,13 @@ fun ComunicarScreen(
             mensaje = "No se pudo reproducir el mensaje en este dispositivo" to
                 TipoMensaje.ERROR
             vibrar(context, PatronVibracion.ERROR)
+
+        } finally {
+            // El teclado se oculta siempre: con exito, con error y tambien en
+            // los return tempranos de arriba. Quedaba abierto tapando el aviso
+            // justo cuando habia algo que leer, que es el unico canal por el
+            // que esta persona se entera de lo que paso.
+            controladorDeTeclado?.hide()
         }
     }
 
