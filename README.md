@@ -4,8 +4,8 @@ Aplicación móvil Android de accesibilidad para personas con **discapacidad sen
 El usuario escribe lo que quiere decir y el teléfono lo reproduce en voz alta, permitiéndole
 comunicarse con una persona oyente sin depender de que esta sepa lengua de señas.
 
-Proyecto de la asignatura **Desarrollo de Aplicaciones Móviles (DSY2204)** — Experiencia 3,
-Evaluación Sumativa 3.
+Proyecto de la asignatura **Desarrollo de Aplicaciones Móviles (DSY2204)** — Evaluación
+Final Transversal.
 
 **Autora:** María Ovalle Suazo
 **Repositorio:** https://github.com/nayhru/Comunicame-App
@@ -38,7 +38,7 @@ Evaluación Sumativa 3.
 
 | Sección | Qué hace |
 |---|---|
-| Comunicar | Texto a voz, frases sugeridas y frases propias con crear, editar y eliminar. |
+| Comunicar | Texto a voz y voz a texto, frases sugeridas y frases propias con crear, editar y eliminar. |
 | Emergencia | Tarjeta para mostrar a un tercero, contacto de emergencia y servicios. |
 | Mi perfil | Datos de la cuenta, edición, contacto de emergencia y baja de la cuenta. |
 
@@ -52,6 +52,8 @@ El usuario objetivo no percibe el canal auditivo, así que la app sigue estas re
 - **La vibración se declara como accesibilidad** (`USAGE_ASSISTANCE_ACCESSIBILITY`), no como
   notificación. Si no, el modo silencio del teléfono la suprime y el usuario se queda sin
   ningún aviso.
+- **El permiso de micrófono se pide al usar voz a texto**, no al abrir la aplicación, para que
+  el sistema lo muestre cuando ya se entiende para qué sirve.
 - **La vibración de Emergencia ignora el ajuste del perfil.** Quien la desactivó lo hizo
   pensando en los avisos cotidianos, no en el momento en que está pidiendo ayuda.
 - **Sin _dynamic color_**: la paleta es fija y sus pares texto/fondo superan la razón de
@@ -118,9 +120,10 @@ pruebas, pero no persiste nada. Para conectarlo de verdad, ver [firebase/README.
 
     ./gradlew testDebugUnitTest
 
-Son 117 pruebas en ocho archivos y no requieren emulador ni dispositivo conectado. Cubren las
+Son 136 pruebas en nueve archivos y no requieren emulador ni dispositivo conectado. Cubren las
 validaciones, las utilidades de colección, la conversión a documentos de Firestore, el CRUD
-completo sobre el repositorio y las decisiones del ViewModel.
+completo sobre el repositorio, las decisiones del ViewModel y la interpretación de lo que
+devuelve el reconocedor de voz.
 
 ## Distribución
 
@@ -136,9 +139,14 @@ se gestiona con Firebase Authentication y la sesión se mantiene con SharedPrefe
 operaciones de registrar, consultar, modificar y eliminar funcionan sobre las cuentas y sobre
 las frases guardadas.
 
-Quedan **en proceso, documentadas para futuras entregas**: el modo voz a texto, el historial de
-conversaciones, la ficha médica y los ajustes de tamaño de texto y contraste. Están declaradas
-dentro de la propia app para que el alcance real quede visible para quien la usa.
+La conversación funciona en los dos sentidos: texto a voz para que la persona se exprese, y voz
+a texto para que lo que le digan aparezca escrito. El reconocimiento usa el del sistema, con
+permiso de micrófono solicitado en el momento de usarlo y un tutorial accesible desde la misma
+pantalla.
+
+Quedan **en proceso, documentadas para futuras entregas**: el historial de conversaciones, la
+ficha médica y los ajustes de tamaño de texto y contraste. Están declaradas dentro de la propia
+app para que el alcance real quede visible para quien la usa.
 
 ## Credenciales
 

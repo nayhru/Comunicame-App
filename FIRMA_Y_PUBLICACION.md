@@ -88,7 +88,7 @@ APK > release**.
 
 | | Depuración | Distribución |
 |---|---|---|
-| Tamaño | 21,8 MB | 15,1 MB |
+| Tamaño | 20,9 MB | 14,4 MB |
 | Firma | clave automática de desarrollo | certificado propio |
 | `isMinifyEnabled` | — | `false` |
 
@@ -124,14 +124,15 @@ Android Gradle Plugin lo omite por innecesario.
 
 `app/build.gradle.kts` declara:
 
-    versionCode = 1
-    versionName = "1.0"
+    versionCode = 2
+    versionName = "1.1"
 
 `versionCode` es un entero que solo usa el sistema: una actualización debe
 traerlo más alto que la versión instalada o Android la rechaza. `versionName`
 es el texto que ve la persona.
 
-Para la próxima versión habría que subir ambos, por ejemplo a `2` y `"1.1"`.
+La versión 1.1 incorpora voz a texto. Se subió el `versionCode` junto con ella
+precisamente para poder instalarla sobre la 1.0 ya distribuida.
 
 ## Publicación
 
