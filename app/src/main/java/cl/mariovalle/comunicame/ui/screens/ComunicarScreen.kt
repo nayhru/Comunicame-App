@@ -562,7 +562,7 @@ fun ComunicarScreen(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "Muéstrale el teléfono a quien te habla y toca Escuchar.",
+                        text = "Muéstrale el teléfono a quien te habla.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f)
@@ -617,12 +617,6 @@ fun ComunicarScreen(
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
-                Text(
-                    text = "Este texto es para que tú lo leas. El teléfono no lo dice en " +
-                        "voz alta.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -636,9 +630,8 @@ fun ComunicarScreen(
                     value = loQueDijo,
                     onValueChange = { loQueDijo = it },
                     placeholder = {
-                        Text("Aquí aparecerá escrito lo que diga la otra persona")
+                        Text("Aquí aparecerá lo que diga")
                     },
-                    label = { Text("Dicho por la otra persona") },
                     shape = formaCampo,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.secondary,
@@ -651,12 +644,6 @@ fun ComunicarScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Text(
-                    text = "Puedes corregir cualquier palabra tocando el texto.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 4.dp, top = 4.dp)
-                )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
